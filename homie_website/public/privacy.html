@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Privacy Policy - Clippy</title>
+    <link rel="icon" type="image/png" href="/assets/Group 68.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        html {
+            height: 100%;
+            width: 100%;
+        }
+
+        ::selection {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        ::-moz-selection {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 6rem;
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            flex-wrap: wrap;
+            background-color: #ffffff;
+        }
+
+        .logo-left {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            color: #000000;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .logo-left:hover {
+            text-decoration: underline !important;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-link-pricing {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            color: #000000;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .nav-link-pricing:hover {
+            text-decoration: underline !important;
+        }
+
+        .logo-right {
+            font-size: 1.2rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            color: transparent;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            padding: 2rem 6rem 4rem;
+            max-width: 900px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .page-title {
+            font-size: 2.5rem;
+            font-weight: 400;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+
+        .last-updated {
+            font-size: 0.9rem;
+            color: #666666;
+            margin-bottom: 3rem;
+        }
+
+        .section {
+            margin-bottom: 2.5rem;
+        }
+
+        .section-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+
+        .subsection-title {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            margin-top: 1.5rem;
+        }
+
+        .section p {
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 1rem;
+        }
+
+        .section ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .section li {
+            font-size: 1rem;
+            line-height: 1.7;
+            margin-bottom: 0.5rem;
+        }
+
+        .section a {
+            color: #000000;
+            text-decoration: underline;
+        }
+
+        .section a:hover {
+            text-decoration: none;
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 6rem;
+            font-size: 1.5rem;
+            color: #000000;
+            background-color: #ffffff;
+        }
+
+        .footer-link {
+            color: #000000;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .footer-link:hover {
+            opacity: 0.7;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem 4rem;
+            }
+
+            .logo-left {
+                order: 1;
+            }
+
+            .nav-links {
+                order: 2;
+                flex: 1;
+                justify-content: center;
+                gap: 1.2rem;
+            }
+
+            .logo-right {
+                display: none;
+            }
+
+            .main-content {
+                padding: 2rem 4rem 3rem;
+            }
+
+            .page-title {
+                font-size: 2rem;
+            }
+
+            .footer {
+                padding: 1.5rem 4rem;
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 1rem 2rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .main-content {
+                padding: 1.5rem 2rem 2rem;
+            }
+
+            .page-title {
+                font-size: 1.75rem;
+            }
+
+            .section-title {
+                font-size: 1.1rem;
+            }
+
+            .footer {
+                padding: 1.5rem 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <a href="/" class="logo-left">Clippy</a>
+        <nav class="nav-links">
+            <a href="/download" class="nav-link-pricing">Get Homie</a>
+            <a href="/legacy/inspiration" class="nav-link-pricing">Vibes</a>
+        </nav>
+        <div class="logo-right">Clippy</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <h1 class="page-title">Privacy Policy</h1>
+        <p class="last-updated">Last updated: December 11, 2025</p>
+
+        <div class="section">
+            <h2 class="section-title">1. Introduction</h2>
+            <p>Homie Labs ("we", "us", or "our") respects your privacy and is committed to protecting your personal data. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our desktop application.</p>
+            <p>Please read this policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access our services.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">2. Information We Collect</h2>
+
+            <h3 class="subsection-title">2.1 Information You Provide</h3>
+            <ul>
+                <li><strong>Account Data:</strong> When you sign up for our waitlist or create an account, we may collect your name, email address, and other contact information.</li>
+                <li><strong>Communications:</strong> When you contact us for support or feedback, we collect the information you provide in those communications.</li>
+                <li><strong>Payment Data:</strong> If you make a purchase, payment information is processed by our third-party payment processors. We do not store your full payment card details.</li>
+            </ul>
+
+            <h3 class="subsection-title">2.2 Automatically Collected Information</h3>
+            <ul>
+                <li><strong>Usage Data:</strong> We collect information about how you interact with our services, including pages visited, features used, and time spent.</li>
+                <li><strong>Device Data:</strong> We may collect device identifiers, operating system version, browser type, and similar technical information.</li>
+                <li><strong>Log Data:</strong> Our servers automatically record information such as IP address, access times, and referring URLs.</li>
+            </ul>
+
+            <h3 class="subsection-title">2.3 Desktop Application</h3>
+            <p>Our desktop application runs locally on your machine. We do not have access to your source code, terminal commands, or file contents unless you explicitly choose to share diagnostic information with us.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">3. How We Use Your Information</h2>
+            <p>We use the information we collect to:</p>
+            <ul>
+                <li>Provide, operate, and maintain our services</li>
+                <li>Process transactions and send related information</li>
+                <li>Send you technical notices, updates, security alerts, and support messages</li>
+                <li>Respond to your comments, questions, and customer service requests</li>
+                <li>Analyze usage patterns to improve our products and user experience</li>
+                <li>Detect, prevent, and address technical issues and security threats</li>
+                <li>Comply with legal obligations</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">4. Sharing of Information</h2>
+            <p>We do not sell your personal information. We may share your information in the following circumstances:</p>
+            <ul>
+                <li><strong>Service Providers:</strong> With third-party vendors who perform services on our behalf (e.g., hosting, analytics, payment processing).</li>
+                <li><strong>Legal Compliance:</strong> When required by law, regulation, or legal process.</li>
+                <li><strong>Protection of Rights:</strong> To protect our rights, privacy, safety, or property, or that of our users or the public.</li>
+                <li><strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets.</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">5. Data Retention</h2>
+            <p>We retain your personal information for as long as necessary to fulfill the purposes for which it was collected, comply with our legal obligations, resolve disputes, and enforce our agreements. When data is no longer needed, we securely delete or anonymize it.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">6. Data Security</h2>
+            <p>We implement appropriate technical and organizational measures to protect your personal information against unauthorized access, alteration, disclosure, or destruction. However, no method of transmission over the Internet or electronic storage is 100% secure, and we cannot guarantee absolute security.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">7. Your Rights</h2>
+            <p>Depending on your location, you may have certain rights regarding your personal information, including:</p>
+            <ul>
+                <li>The right to access and receive a copy of your data</li>
+                <li>The right to correct inaccurate information</li>
+                <li>The right to request deletion of your data</li>
+                <li>The right to restrict or object to certain processing</li>
+                <li>The right to data portability</li>
+            </ul>
+            <p>To exercise these rights, please contact us using the information provided below.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">8. Cookies and Tracking Technologies</h2>
+            <p>We use cookies and similar tracking technologies to collect information about your browsing activities. You can control cookies through your browser settings. Note that disabling cookies may affect the functionality of our website.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">9. Third-Party Links</h2>
+            <p>Our services may contain links to third-party websites or services. We are not responsible for the privacy practices of these third parties. We encourage you to review the privacy policies of any third-party sites you visit.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">10. Children's Privacy</h2>
+            <p>Our services are not intended for individuals under the age of 16. We do not knowingly collect personal information from children. If we become aware that we have collected data from a child without parental consent, we will take steps to delete that information.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">11. Changes to This Policy</h2>
+            <p>We may update this Privacy Policy from time to time. We will notify you of any material changes by posting the new policy on this page and updating the "Last updated" date. Your continued use of our services after such changes constitutes acceptance of the updated policy.</p>
+        </div>
+
+        <div class="section">
+            <h2 class="section-title">12. Contact Us</h2>
+            <p>If you have any questions about this Privacy Policy or our data practices, please contact us at:</p>
+            <p>Email: <a href="mailto:privacy@homielabs.com">privacy@homielabs.com</a></p>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="year">2025</div>
+        <a href="/privacy" class="footer-link">privacy</a>
+    </footer>
+</body>
+</html>

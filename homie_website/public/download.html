@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing - Clippy</title>
+    <link rel="icon" type="image/png" href="/assets/Group 68.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 6rem;
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            flex-wrap: wrap;
+            background-color: transparent;
+        }
+
+        .logo-left {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            transition: text-decoration 0.3s ease;
+            color: #000000;
+        }
+
+        .logo-left:hover {
+            text-decoration: underline !important;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-link-pricing {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            color: #000000;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .nav-link-pricing:hover {
+            text-decoration: underline !important;
+        }
+
+        .logo-right {
+            font-size: 1.2rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            color: transparent;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8rem 6rem 4rem;
+            text-align: center;
+        }
+
+        .pricing-text {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #000000;
+            margin-bottom: 3rem;
+            line-height: 1.6;
+        }
+
+        .cta-button {
+            background-color: #000000;
+            color: #ffffff;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 400;
+            font-family: 'Manrope', sans-serif;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        .cta-button:hover {
+            background-color: #333333;
+        }
+
+        .version-text {
+            font-size: 0.75rem;
+            color: #888888;
+            margin-top: 0.5rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem 4rem;
+            }
+
+            .main-content {
+                padding: 6rem 4rem 3rem;
+            }
+
+            .pricing-text {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <a href="/" class="logo-left">Clippy</a>
+        <nav class="nav-links">
+            <a href="/download" class="nav-link-pricing">Get Homie</a>
+            <a href="/legacy/inspiration" class="nav-link-pricing">Vibes</a>
+        </nav>
+        <div class="logo-right">Clippy</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <p class="pricing-text">
+            Clippy is completely free to use, because it runs fully on local AI.<br>
+            I built it as a hobbby project for myself, so feel free to use it.<br>
+        </p>
+        <button class="cta-button">
+            Download for macOS
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-left: 4px;">
+                <path d="M8 2V14M8 14L4 10M8 14L12 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <p class="version-text"></p>
+    </main>
+
+    <script type="module">
+        // Download button functionality - fetches latest DMG URL from Supabase
+        const SUPABASE_URL = 'https://clfhvkbcdqhssucnmjtd.supabase.co';
+
+        async function handleDownload() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-latest-version`);
+                const data = await response.json();
+
+                if (data.dmg_url) {
+                    window.location.href = data.dmg_url;
+                } else {
+                    console.error('No DMG URL available');
+                    alert('Download not available. Please try again later.');
+                }
+            } catch (error) {
+                console.error('Error fetching download URL:', error);
+                alert('Failed to start download. Please try again.');
+            }
+        }
+
+        async function displayVersion() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-latest-version`);
+                const data = await response.json();
+                if (data.version) {
+                    document.querySelectorAll('.version-text').forEach(el => {
+                        el.textContent = `v${data.version}`;
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching version:', error);
+            }
+        }
+
+        // Attach click handler to download button
+        document.querySelector('.cta-button').addEventListener('click', handleDownload);
+
+        // Display version on page load
+        displayVersion();
+    </script>
+</body>
+</html>
+

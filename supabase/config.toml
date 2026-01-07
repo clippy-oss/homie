@@ -1,0 +1,24 @@
+# Supabase Edge Functions Configuration
+
+[functions.chat-with-openai]
+  verify_jwt = true
+
+[functions.transcribe-with-whisper]
+  verify_jwt = true
+
+[functions.get-user-status]
+  verify_jwt = true
+
+[functions.oauth-get-auth-url]
+  verify_jwt = false
+
+[functions.oauth-exchange-token]
+  verify_jwt = false
+
+[functions.oauth-refresh-token]
+  verify_jwt = false
+
+
+
+
+

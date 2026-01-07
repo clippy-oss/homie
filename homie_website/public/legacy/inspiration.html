@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clippy - Inspiration</title>
+    <link rel="icon" type="image/png" href="/assets/Group 68.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Prevent layout shift while fonts load */
+        body {
+            visibility: hidden;
+        }
+        body.fonts-loaded {
+            visibility: visible;
+        }
+    </style>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+
+        html {
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        ::selection {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        ::-moz-selection {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        /* Background Slideshow */
+        .background-slideshow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .background-image {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 96%;
+            max-width: 1700px;
+            height: auto;
+            object-fit: cover;
+            opacity: 0;
+            filter: blur(8px);
+            transition: filter 0.5s ease-in-out;
+        }
+
+        .background-image.active {
+            opacity: 1;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 6rem;
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            flex-wrap: wrap;
+            background-color: transparent;
+        }
+
+        .logo-left {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            transition: text-decoration 0.3s ease;
+            color: #000000;
+        }
+
+        .logo-left:hover {
+            text-decoration: underline !important;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-link-pricing {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            color: #000000;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .nav-link-pricing:hover {
+            text-decoration: underline !important;
+        }
+
+        .logo-right {
+            font-size: 1.2rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            color: transparent;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: #000000;
+            font-weight: 400;
+            font-size: 0.9rem;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        .nav-link.arrow:hover {
+            text-decoration: none;
+        }
+
+        .nav-link.underlined {
+            text-decoration: underline;
+        }
+
+        .nav-link.arrow {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            align-items: center;
+            text-align: center;
+            padding: 10rem 3rem 8rem;
+            position: relative;
+            transform: translateZ(0);
+            will-change: auto;
+        }
+
+        /* Image Grid */
+        .image-grid {
+            width: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem 0;
+        }
+
+        .grid-row {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+            width: 100%;
+        }
+
+        .grid-row.three-cols {
+            justify-content: space-between;
+        }
+
+        .grid-row.two-cols {
+            justify-content: center;
+        }
+
+        .grid-item {
+            position: relative;
+            overflow: hidden;
+            border-radius: 0px;
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .grid-item img {
+            width: 100%;
+            height: auto;
+            object-fit: contain;
+            display: block;
+        }
+
+        .grid-item img.bw-filter {
+            filter: grayscale(100%);
+        }
+
+        /* Three column layout - equal widths, height auto for aspect ratio */
+        .three-cols .grid-item {
+            flex: 1;
+            max-width: calc(33.333% - 1rem);
+        }
+
+        /* Two column layout - centered */
+        .two-cols .grid-item {
+            flex: 0 0 auto;
+        }
+
+        /* Size variations - width only, height determined by aspect ratio */
+        .grid-item.small {
+            width: 300px;
+        }
+
+        .grid-item.medium {
+            width: 400px;
+        }
+
+        .grid-item.large {
+            width: 500px;
+        }
+
+        .grid-item.tall {
+            width: 350px;
+        }
+
+        .grid-item.wide {
+            width: 550px;
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 6rem;
+            font-size: 1.5rem;
+            color: #000000;
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: transparent;
+        }
+
+        .footer-link {
+            color: #000000;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .footer-link:hover {
+            opacity: 0.7;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem 4rem;
+                position: sticky;
+                top: 0;
+                background-color: transparent;
+                z-index: 1000;
+            }
+
+            .nav-link {
+                font-size: 0.9rem;
+            }
+
+            .inspiration-link {
+                display: none;
+            }
+
+            .logo-left {
+                order: 1;
+            }
+
+            .nav-links {
+                order: 2;
+                flex: 1;
+                justify-content: center;
+                gap: 1.2rem;
+            }
+            
+            .music-indicator {
+                position: absolute;
+                right: 2rem;
+            }
+
+            .logo-right {
+                display: none;
+            }
+
+            .main-content {
+                padding: 8rem 2rem 10rem;
+            }
+
+            .footer {
+                padding: 1.5rem 4rem;
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+                position: sticky;
+                bottom: 0;
+                background-color: transparent;
+            }
+
+            /* Stack images vertically on tablets */
+            .grid-row {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .grid-row.three-cols,
+            .grid-row.two-cols {
+                justify-content: center;
+            }
+
+            .three-cols .grid-item,
+            .two-cols .grid-item {
+                max-width: 100%;
+                width: 100% !important;
+                height: auto !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 1rem 1.5rem;
+                position: sticky;
+                top: 0;
+                background-color: transparent;
+                z-index: 1000;
+            }
+
+            .inspiration-link {
+                display: none;
+            }
+
+            .logo-left {
+                order: 1;
+            }
+
+            .nav-links {
+                order: 2;
+                flex: 1;
+                justify-content: center;
+                gap: 1rem;
+            }
+            
+            .music-indicator {
+                position: absolute;
+                right: 1.5rem;
+            }
+
+            .logo-right {
+                display: none;
+            }
+
+            .main-content {
+                padding: 7rem 1.5rem 9rem;
+            }
+
+            .image-grid {
+                padding: 1rem 0;
+            }
+
+            .grid-row {
+                gap: 1rem;
+                margin-bottom: 1rem;
+            }
+        }
+
+        /* Music Indicator */
+        .music-indicator {
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        @media (min-width: 769px) {
+            .music-indicator {
+                position: fixed;
+                right: 1.5rem;
+                top: 1.5rem;
+                z-index: 1000;
+            }
+        }
+
+        .music-indicator-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .music-canvas {
+            display: block;
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Hidden SoundCloud player */
+        .hidden-audio {
+            position: absolute;
+            left: -9999px;
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hidden SoundCloud Player -->
+    <div class="hidden-audio">
+        <iframe id="soundcloudPlayer" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src=""></iframe>
+    </div>
+
+    <!-- Background Slideshow -->
+    <!-- <div class="background-slideshow">
+        <img src="/assets/background/back1.png" alt="Background 1" class="background-image">
+        <img src="/assets/background/back2.png" alt="Background 2" class="background-image">
+        <img src="/assets/background/back3.png" alt="Background 3" class="background-image">
+        <img src="/assets/background/back4.png" alt="Background 4" class="background-image">
+        <img src="/assets/background/back5.png" alt="Background 5" class="background-image">
+    </div> -->
+    <!-- Header -->
+    <header class="header">
+        <a href="/" class="logo-left" style="text-decoration: none; color: #000000;">Clippy</a>
+        <nav class="nav-links">
+            <a href="/download" class="nav-link-pricing">Get Homie</a>
+            <a href="/legacy/inspiration" class="nav-link-pricing">Vibes</a>
+            <!-- Music Indicator -->
+            <button class="music-indicator" id="musicIndicator" title="">
+                <div class="music-indicator-inner">
+                    <canvas class="music-canvas" width="24" height="24" id="musicCanvas"></canvas>
+                </div>
+            </button>
+        </nav>
+        <div class="logo-right">Clippy</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="image-grid" id="imageGrid">
+            <!-- Images will be loaded dynamically from assets/inspiration-images/ -->
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="year">2025</div>
+        <a href="/privacy" class="footer-link">privacy</a>
+    </footer>
+
+    <!-- SoundCloud Widget API -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+
+    <!-- Font loading - must run immediately, not in module -->
+    <script>
+        // Wait for fonts to load before showing content to prevent layout shift
+        function showContent() {
+            document.body.classList.add('fonts-loaded');
+        }
+        
+        // Run immediately if body exists, otherwise wait for DOM
+        if (document.body) {
+            if (document.fonts) {
+                // Try to wait for fonts, but set a timeout fallback
+                document.fonts.ready.then(showContent).catch(showContent);
+                // Fallback timeout in case fonts never load
+                setTimeout(showContent, 1000);
+            } else {
+                showContent();
+            }
+        } else {
+            // Wait for DOM to be ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    if (document.fonts) {
+                        document.fonts.ready.then(showContent).catch(showContent);
+                        setTimeout(showContent, 1000);
+                    } else {
+                        showContent();
+                    }
+                });
+            } else {
+                // DOM already ready, show immediately
+                if (document.fonts) {
+                    document.fonts.ready.then(showContent).catch(showContent);
+                    setTimeout(showContent, 1000);
+                } else {
+                    showContent();
+                }
+            }
+        }
+    </script>
+
+    <script type="module">
+        // Configuration: Add your image filenames here
+        // Images should be placed in assets/inspiration-images/
+        // Supports: .jpg, .jpeg, .png, .gif, .webp
+        const imageFilenames = [
+            'image01.png',
+            'image02.gif',
+            'image03.png',
+            'image04.png',
+            'image05.png',
+            'image06.png',
+            'image07.png',
+            'image08.png',
+            'image09.png',
+            'image10.png',
+            'image12.png',
+            'image13.png',
+            'image14.gif',
+            'image15.png',
+            'image16.gif',
+            'image18.png',
+            'image19.png',
+            'image20.png',
+            'image21.png',
+            'image22.png',
+            'image24.png',
+            'image25.png',
+            'image26.png',
+            'image27.png',
+            'image28.png',
+            'image29.png',
+            'image30.png',
+            'image31.png',
+            'image35.png',
+            'image37.png',
+            'image38.png',
+            'image39.png',
+            'image40.png',
+            'image42.png',
+            'image43.png',
+            'image44.png',
+            'image45.png',
+            'image46.png',
+            'image47.png',
+            'image48.png',
+            'image49.png',
+            'image50.png',
+            'image51.png',
+            'image52.png',
+            'image53.png',
+            'image54.gif',
+            'image55.gif',
+            'image56.gif',
+            'image57.png',
+            'image58.png',
+            'image59.png',
+            'image60.gif',
+            'image61.gif',
+        ];
+
+        // Images to apply black and white filter to
+        const bwFilterImages = ['image37.png', 'image31.png', 'image38.png'];
+
+        // Top row special images (always 2 images from this list)
+        const topRowImages = ['image20.png', 'image19.png', 'image12.png', 'image10.png', 'image04.png'];
+
+        // Available size classes for variation
+        const sizeClasses = ['small', 'medium', 'large', 'tall', 'wide'];
+
+        // Shuffle array function
+        function shuffleArray(array) {
+            const newArray = [...array];
+            for (let i = newArray.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+            }
+            return newArray;
+        }
+
+        // Load and display images
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Load images
+            const imageGrid = document.getElementById('imageGrid');
+            
+            console.log('Loading images, imageFilenames count:', imageFilenames.length);
+            
+            if (imageFilenames.length === 0) {
+                // Show message if no images are configured
+                imageGrid.innerHTML = '<p style="color: #000; font-size: 1.2rem; text-align: center; padding: 4rem;">Add image filenames to the imageFilenames array in the script to display images here.</p>';
+                return;
+            }
+
+            // Select 2 random images from topRowImages for the first row
+            const shuffledTopRow = shuffleArray(topRowImages);
+            const firstRowImages = shuffledTopRow.slice(0, 2);
+            
+            // Remove the selected top row images from the main list
+            const remainingImages = imageFilenames.filter(img => !firstRowImages.includes(img));
+            
+            // Shuffle remaining images for random order
+            const shuffledImages = shuffleArray(remainingImages);
+            
+            // Create the first row with 2 special images
+            const firstRow = document.createElement('div');
+            firstRow.className = 'grid-row two-cols';
+            
+            for (let i = 0; i < firstRowImages.length; i++) {
+                const item = document.createElement('div');
+                
+                // Randomly assign a size class
+                const sizeClass = sizeClasses[Math.floor(Math.random() * sizeClasses.length)];
+                item.className = `grid-item ${sizeClass}`;
+                
+                const img = document.createElement('img');
+                img.src = `/assets/inspiration-images/${firstRowImages[i]}`;
+                img.alt = `Inspiration ${i + 1}`;
+                
+                // Apply black and white filter if image is in the list
+                if (bwFilterImages.includes(firstRowImages[i])) {
+                    img.className = 'bw-filter';
+                }
+                
+                // Error handling for missing images
+                img.onerror = function() {
+                    this.parentElement.style.display = 'none';
+                };
+                
+                item.appendChild(img);
+                firstRow.appendChild(item);
+            }
+            
+            imageGrid.appendChild(firstRow);
+            
+            // Create remaining rows with 2-3 images randomly
+            // Rule: After max 3 consecutive rows with 3 images, must have a row with 2 images
+            let currentIndex = 0;
+            let consecutiveThreeImageRows = 0;
+            
+            while (currentIndex < shuffledImages.length) {
+                // Decide if this row has 2 or 3 images
+                let imagesInRow;
+                
+                if (consecutiveThreeImageRows >= 3) {
+                    // Force a 2-image row after 3 consecutive 3-image rows
+                    imagesInRow = 2;
+                    consecutiveThreeImageRows = 0;
+                } else {
+                    // Randomly decide between 2 or 3 images
+                    imagesInRow = Math.random() > 0.5 ? 3 : 2;
+                    
+                    // Track consecutive 3-image rows
+                    if (imagesInRow === 3) {
+                        consecutiveThreeImageRows++;
+                    } else {
+                        consecutiveThreeImageRows = 0;
+                    }
+                }
+                
+                const rowClass = imagesInRow === 3 ? 'three-cols' : 'two-cols';
+                
+                // Create row
+                const row = document.createElement('div');
+                row.className = `grid-row ${rowClass}`;
+                
+                // Add images to row
+                for (let i = 0; i < imagesInRow && currentIndex < shuffledImages.length; i++) {
+                    const item = document.createElement('div');
+                    
+                    // Randomly assign a size class
+                    const sizeClass = sizeClasses[Math.floor(Math.random() * sizeClasses.length)];
+                    item.className = `grid-item ${sizeClass}`;
+                    
+                    const img = document.createElement('img');
+                    img.src = `/assets/inspiration-images/${shuffledImages[currentIndex]}`;
+                    img.alt = `Inspiration ${currentIndex + 1}`;
+                    
+                    // Apply black and white filter if image is in the list
+                    if (bwFilterImages.includes(shuffledImages[currentIndex])) {
+                        img.className = 'bw-filter';
+                    }
+                    
+                    // Error handling for missing images
+                    img.onerror = function() {
+                        this.parentElement.style.display = 'none';
+                    };
+                    
+                    item.appendChild(img);
+                    row.appendChild(item);
+                    currentIndex++;
+                }
+                
+                imageGrid.appendChild(row);
+            }
+        });
+
+        // Music Player Control
+        (function() {
+            const canvas = document.getElementById('musicCanvas');
+            const ctx = canvas.getContext('2d');
+            const musicIndicator = document.getElementById('musicIndicator');
+            const iframe = document.getElementById('soundcloudPlayer');
+            
+            let widget = null;
+            let isPlaying = false;
+            let animationId = null;
+            let hasStarted = false;
+            let widgetReady = false;
+
+            // Song library
+            const songs = [
+                {
+                    title: "Darker Than This - Emile Mosseri",
+                    trackId: "886849774",
+                    startTime: 0
+                }
+                // {
+                //     title: "Ava - ben salisbury",
+                //     trackId: "210595933",
+                //     startTime: 0
+                // },
+                // {
+                //     title: "claire de lune - coco",
+                //     trackId: "927748312",
+                //     startTime: 0
+                // },
+                // {
+                //     title: "Bundle of Joy - Jartisto",
+                //     trackId: "953021434",
+                //     startTime: 0
+                // },
+                // {
+                //     title: "Falaise - Floating Points",
+                //     trackId: "660183065",
+                //     startTime: 24000 // 24 seconds in milliseconds
+                // },
+                // {
+                //     title: "I Saw You - Fred again.. & Brian Eno",
+                //     trackId: "1507198033",
+                //     startTime: 0
+                // }
+            ];
+
+            // Randomly select a song
+            const selectedSong = songs[Math.floor(Math.random() * songs.length)];
+            console.log('Selected song:', selectedSong.title);
+
+            // Set the iframe src with the selected track
+            iframe.src = `https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/${selectedSong.trackId}&color=%230a0101&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true`;
+
+            // Set the tooltip
+            musicIndicator.title = selectedSong.title;
+
+            // Initialize SoundCloud Widget
+            if (typeof SC !== 'undefined') {
+                widget = SC.Widget(iframe);
+                
+                // Wait for widget to be ready
+                widget.bind(SC.Widget.Events.READY, function() {
+                    console.log('SoundCloud widget ready');
+                    widgetReady = true;
+                    
+                    // Start at the specified time
+                    if (selectedSong.startTime > 0) {
+                        widget.seekTo(selectedSong.startTime);
+                    }
+                    
+                    // Listen for play/pause events
+                    widget.bind(SC.Widget.Events.PLAY, function() {
+                        // Ensure it starts at correct time on first play
+                        if (!hasStarted && selectedSong.startTime > 0) {
+                            widget.seekTo(selectedSong.startTime);
+                            hasStarted = true;
+                        }
+                        isPlaying = true;
+                        startVisualization();
+                    });
+                    
+                    widget.bind(SC.Widget.Events.PAUSE, function() {
+                        isPlaying = false;
+                        stopVisualization();
+                    });
+                    
+                    widget.bind(SC.Widget.Events.FINISH, function() {
+                        isPlaying = false;
+                        stopVisualization();
+                    });
+                });
+            }
+
+            // Click to toggle play/pause
+            musicIndicator.addEventListener('click', function() {
+                if (widget && widgetReady) {
+                    widget.isPaused(function(paused) {
+                        if (paused) {
+                            widget.play();
+                        } else {
+                            widget.pause();
+                        }
+                    });
+                }
+            });
+
+            // Visualization animation
+            function drawVisualizer() {
+                const width = canvas.width;
+                const height = canvas.height;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+                
+                if (isPlaying) {
+                    // Draw pause icon (two vertical bars) when playing
+                    ctx.fillStyle = '#000000';
+                    const pauseBarWidth = 2;
+                    const pauseBarHeight = 10;
+                    const pauseBarSpacing = 3;
+                    
+                    // Left bar
+                    ctx.fillRect(centerX - pauseBarSpacing / 2 - pauseBarWidth, centerY - pauseBarHeight / 2, pauseBarWidth, pauseBarHeight);
+                    // Right bar
+                    ctx.fillRect(centerX + pauseBarSpacing / 2, centerY - pauseBarHeight / 2, pauseBarWidth, pauseBarHeight);
+                } else {
+                    // Draw animated bars (3 bars) when paused
+                    const barCount = 3;
+                    const barWidth = 2;
+                    const barSpacing = 3;
+                    const maxBarHeight = 12;
+                    const time = Date.now() / 100;
+                    
+                    ctx.fillStyle = '#000000';
+                    
+                    for (let i = 0; i < barCount; i++) {
+                        // Create wave effect with different frequencies
+                        const barHeight = maxBarHeight * (0.3 + 0.7 * Math.abs(Math.sin(time + i * 0.5)));
+                        const x = centerX - (barCount * (barWidth + barSpacing) / 2) + i * (barWidth + barSpacing) + barSpacing / 2;
+                        const y = centerY - barHeight / 2;
+                        
+                        ctx.fillRect(x, y, barWidth, barHeight);
+                    }
+                }
+            }
+
+            function startVisualization() {
+                if (animationId) return;
+                
+                function animate() {
+                    drawVisualizer();
+                    animationId = requestAnimationFrame(animate);
+                }
+                animate();
+            }
+
+            function stopVisualization() {
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+                // Start animation again for paused state (waveform)
+                startVisualization();
+            }
+
+            // Initial draw and start animation
+            drawVisualizer();
+            startVisualization();
+
+            // On mobile, trigger a click on page load to initialize the player
+            // This ensures the first real user click will work properly
+            function isMobileDevice() {
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+            }
+
+            if (isMobileDevice()) {
+                // Wait for widget to be ready before triggering initial click
+                const checkReadyAndClick = setInterval(function() {
+                    if (widgetReady) {
+                        clearInterval(checkReadyAndClick);
+                        // Trigger a programmatic click after a short delay
+                        setTimeout(function() {
+                            musicIndicator.click();
+                        }, 500);
+                    }
+                }, 100);
+            }
+        })();
+    </script>
+</body>
+</html>
+

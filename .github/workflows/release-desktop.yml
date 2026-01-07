@@ -1,0 +1,263 @@
+name: Release Desktop
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 0.4.0-alpha.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build, Sign, Notarize & Release
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Determine version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Extract version from tag (remove 'v' prefix)
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Release version: $VERSION"
+
+      - name: Create Local.xcconfig
+        working-directory: homie
+        env:
+          DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          cat > Local.xcconfig << EOF
+          //
+          //  Local.xcconfig
+          //  CI-generated configuration
+          //
+
+          PRODUCT_BUNDLE_IDENTIFIER = com.homie.app
+          DEVELOPMENT_TEAM = ${DEVELOPER_TEAM_ID}
+          MARKETING_VERSION = ${VERSION}
+
+          // Code signing - use Automatic for archive, export handles Developer ID signing
+          CODE_SIGN_STYLE = Automatic
+          EOF
+          echo "Created Local.xcconfig"
+          cat Local.xcconfig
+
+      - name: Setup Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - name: Import signing certificate
+        env:
+          APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/signing.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 32)
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Import certificate
+          CERTIFICATE_PATH=$RUNNER_TEMP/certificate.p12
+          echo "$APPLE_CERTIFICATE_BASE64" | base64 --decode > "$CERTIFICATE_PATH"
+
+          security import "$CERTIFICATE_PATH" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A \
+            -t cert \
+            -f pkcs12 \
+            -k "$KEYCHAIN_PATH"
+
+          security list-keychain -d user -s "$KEYCHAIN_PATH"
+
+          # Allow codesign to access keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+
+          # Store keychain path for cleanup
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+
+      - name: Store notarization credentials
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
+        run: |
+          xcrun notarytool store-credentials "homie-notary" \
+            --apple-id "$APPLE_ID" \
+            --team-id "$DEVELOPER_TEAM_ID" \
+            --password "$APPLE_ID_PASSWORD"
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Build, sign and create DMG
+        working-directory: homie/release
+        env:
+          HOMIE_VERSION: ${{ steps.version.outputs.version }}
+          HOMIE_BUILD_NUMBER: ${{ github.run_number }}
+          SIGN_IDENTITY: ${{ secrets.SIGN_IDENTITY }}
+        run: |
+          chmod +x release.sh
+          ./release.sh \
+            --version "$HOMIE_VERSION" \
+            --build-number "$HOMIE_BUILD_NUMBER" \
+            --clean
+
+      - name: Upload to Cloudflare R2
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_S3_API: ${{ secrets.CLOUDFLARE_S3_API }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          DMG_FILE="homie/.builds/homie-v${VERSION}.dmg"
+          DMG_NAME="Homie-v${VERSION}.dmg"
+          BUCKET_NAME="homie"
+
+          # Configure AWS CLI
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+          aws configure set region auto
+
+          echo "Uploading $DMG_NAME to R2..."
+          aws s3 cp "$DMG_FILE" "s3://$BUCKET_NAME/$DMG_NAME" \
+            --endpoint-url "$CLOUDFLARE_S3_API"
+
+          echo "Upload complete!"
+          echo "Public URL: ${{ secrets.R2_PUBLIC_URL }}/$DMG_NAME"
+
+          # Store DMG size for appcast
+          DMG_SIZE=$(stat -f%z "$DMG_FILE")
+          echo "DMG_SIZE=$DMG_SIZE" >> $GITHUB_ENV
+
+      - name: Generate and upload appcast.xml
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          CLOUDFLARE_S3_API: ${{ secrets.CLOUDFLARE_S3_API }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD="${{ github.run_number }}"
+          DMG_URL="${{ secrets.R2_PUBLIC_URL }}/Homie-v${VERSION}.dmg"
+          PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
+
+          cat > appcast.xml << EOF
+          <?xml version="1.0" encoding="utf-8"?>
+          <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+              <channel>
+                  <title>Homie Changelog</title>
+                  <link>${{ secrets.R2_PUBLIC_URL }}/appcast.xml</link>
+                  <description>Most recent changes with links to updates.</description>
+                  <language>en</language>
+                  <item>
+                      <title>Version ${VERSION}</title>
+                      <pubDate>${PUB_DATE}</pubDate>
+                      <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+                      <sparkle:version>${BUILD}</sparkle:version>
+                      <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+                      <enclosure url="${DMG_URL}"
+                                 sparkle:version="${BUILD}"
+                                 sparkle:shortVersionString="${VERSION}"
+                                 length="${DMG_SIZE}"
+                                 type="application/octet-stream" />
+                      <description><![CDATA[
+          <h2>What's New in ${VERSION}</h2>
+          <p>See GitHub release notes for details.</p>
+                      ]]></description>
+                  </item>
+              </channel>
+          </rss>
+          EOF
+
+          aws s3 cp appcast.xml "s3://homie/appcast.xml" \
+            --endpoint-url "$CLOUDFLARE_S3_API" \
+            --content-type "text/xml"
+
+          echo "Appcast uploaded to: ${{ secrets.R2_PUBLIC_URL }}/appcast.xml"
+
+      - name: Update Supabase app_versions table
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          BUILD="${{ github.run_number }}"
+          DMG_URL="${{ secrets.R2_PUBLIC_URL }}/Homie-v${VERSION}.dmg"
+          SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
+
+          echo "Inserting version ${VERSION} (build ${BUILD}) into app_versions table..."
+
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST \
+            "${SUPABASE_URL}/rest/v1/app_versions" \
+            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: return=representation" \
+            -d "{
+              \"version\": \"${VERSION}\",
+              \"build\": ${BUILD},
+              \"release_notes\": \"See GitHub release notes for details.\",
+              \"dmg_url\": \"${DMG_URL}\",
+              \"is_required\": false,
+              \"min_os_version\": \"15.0\"
+            }")
+
+          HTTP_CODE=$(echo "$RESPONSE" | tail -1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+
+          if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
+            echo "✅ Successfully inserted version record into app_versions"
+            echo "$BODY"
+          else
+            echo "⚠️ Failed to insert version record (HTTP $HTTP_CODE)"
+            echo "$BODY"
+          fi
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Homie v${{ steps.version.outputs.version }}
+          draft: false
+          prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
+          generate_release_notes: true
+          body: |
+            ## Download
+
+            - **Download**: [Homie-v${{ steps.version.outputs.version }}.dmg](${{ secrets.R2_PUBLIC_URL }}/Homie-v${{ steps.version.outputs.version }}.dmg)
+
+            ## Installation
+
+            1. Download the DMG file
+            2. Open the DMG and drag Homie to Applications
+            3. Launch Homie from Applications
+
+            ---
+            *Auto-generated release*
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          if [ -n "$KEYCHAIN_PATH" ]; then
+            security delete-keychain "$KEYCHAIN_PATH" 2>/dev/null || true
+          fi

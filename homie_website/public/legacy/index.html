@@ -1,0 +1,1579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clippy</title>
+    <link rel="icon" type="image/png" href="/assets/Group 68.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200;300;400;500;600;700;800&family=EB+Garamond:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        /* Prevent layout shift while fonts load */
+        body {
+            visibility: hidden;
+        }
+        body.fonts-loaded {
+            visibility: visible;
+        }
+    </style>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Manrope', sans-serif;
+            background-color: #ffffff;
+            color: #000000;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+            position: relative;
+        }
+
+        html {
+            overscroll-behavior: none;
+            -webkit-overflow-scrolling: touch;
+            height: 100%;
+            width: 100%;
+        }
+
+        ::selection {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        ::-moz-selection {
+            background-color: #000000;
+            color: #ffffff;
+        }
+
+        /* Background Slideshow */
+        .background-slideshow {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        .background-image {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 96%;
+            max-width: 1700px;
+            height: auto;
+            object-fit: cover;
+            opacity: 0;
+            filter: blur(8px);
+            transition: filter 0.5s ease-in-out;
+        }
+
+        .background-image.active {
+            opacity: 1;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 6rem;
+            position: sticky;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            flex-wrap: wrap;
+            background-color: transparent;
+        }
+
+        .logo-left {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .logo-left:hover {
+            text-decoration: underline !important;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-link-pricing {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            text-decoration: none;
+            color: #000000;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .nav-link-pricing:hover {
+            text-decoration: underline !important;
+        }
+
+        .logo-right {
+            font-size: 1.2rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            color: transparent;
+        }
+
+        .nav-link {
+            text-decoration: none;
+            color: #000000;
+            font-weight: 400;
+            font-size: 0.9rem;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .nav-link:hover {
+            text-decoration: underline;
+        }
+
+        .nav-link.arrow:hover {
+            text-decoration: none;
+        }
+
+        .nav-link.underlined {
+            text-decoration: underline;
+        }
+
+        .nav-link.arrow {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        /* Main Content */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            text-align: left;
+            padding: 8rem 6rem 4rem;
+            position: relative;
+            transform: translateZ(0);
+            will-change: auto;
+        }
+
+        .title-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 1rem;
+            position: relative;
+            width: 100%;
+        }
+
+        .main-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+            text-align: left;
+            width: 100%;
+        }
+
+        .video-container {
+            width: 100%;
+            max-width: 100%;
+            margin: 3rem 0 0 0;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background-color: #f5f5f5;
+        }
+
+        .content-section {
+            width: 100%;
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 4rem;
+            padding: 0 12rem;
+            margin: 4rem 0;
+        }
+
+        .content-section-text {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+
+        .content-section-title {
+            font-size: 1.5rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            line-height: 1.5;
+            text-align: left;
+            color: #000000;
+        }
+
+        .content-section-video {
+            flex: 1;
+            border-radius: 8px;
+            overflow: hidden;
+            position: relative;
+            background-color: #f5f5f5;
+        }
+
+        .content-section-video video {
+            width: 100%;
+            height: auto;
+            display: block;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .content-section.reversed {
+            flex-direction: row-reverse;
+        }
+
+        .video-container video {
+            width: 100%;
+            height: auto;
+            display: block;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        /* Logo Carousel */
+        .logo-carousel-section {
+            width: 100%;
+            margin: 4rem 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .logo-carousel-title {
+            font-size: 1rem;
+            font-weight: 400;
+            letter-spacing: 0.1em;
+            color: #000000;
+            text-align: center;
+        }
+
+        .logo-carousel-wrapper {
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+        }
+        
+        .logo-carousel-wrapper::before,
+        .logo-carousel-wrapper::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 10%;
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        .logo-carousel {
+            display: flex;
+            gap: 4rem;
+            align-items: center;
+            animation: scroll 25s linear infinite;
+            will-change: transform;
+            width: fit-content;
+        }
+
+        .logo-carousel-item {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 60px;
+            min-width: 150px;
+            pointer-events: none;
+        }
+
+        .logo-carousel-item img {
+            max-height: 60px;
+            max-width: 150px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            filter: grayscale(100%);
+            opacity: 0.6;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        @keyframes scroll {
+            0% {
+                transform: translateX(0);
+            }
+            100% {
+                transform: translateX(-50%);
+            }
+        }
+
+        /* Duplicate logos for seamless loop */
+        .logo-carousel::after {
+            content: '';
+            display: block;
+            flex-shrink: 0;
+        }
+
+        /* Text Section */
+        .text-section {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            margin: 6rem 0;
+            padding: 0 6rem;
+        }
+
+        .text-section-line1 {
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #000000;
+            text-align: center;
+            margin: 0;
+        }
+
+        .text-section-line2 {
+            font-size: 1rem;
+            font-weight: 400;
+            color: #000000;
+            text-align: center;
+            margin: 0;
+        }
+
+        /* Try Clippy Section */
+        .try-clippy-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2rem;
+            margin-top: 6rem;
+            margin-bottom: 6rem;
+        }
+
+        .try-clippy-text {
+            font-size: 4.5rem;
+            font-weight: 400;
+            color: #000000;
+            text-align: center;
+            margin: 0;
+            letter-spacing: 0.1em;
+        }
+
+        /* Image Carousel */
+        .image-carousel-wrapper {
+            width: 100%;
+            overflow: hidden;
+            position: relative;
+            margin-top: 2rem;
+            mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+            -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+        }
+
+        .image-carousel {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+            animation: scroll 30s linear infinite;
+            will-change: transform;
+            width: fit-content;
+        }
+
+        .image-carousel-item {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none;
+        }
+
+        .image-carousel-item img {
+            max-width: 90px;
+            max-height: 60px;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+
+        .subtitle {
+            font-family: 'EB Garamond', serif;
+            font-size: 1.2rem;
+            font-weight: 400;
+            color: #000000;
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .description-container {
+            max-width: 360px;
+            margin: 0.5rem auto 0;
+            width: 100%;
+        }
+
+        .description-text {
+            font-family: 'EB Garamond', serif;
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #000000;
+            text-align: left;
+            line-height: 1.6;
+            margin: 0 0 1.5rem 0;
+        }
+
+        .description-text:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .description-text a {
+            font-family: 'EB Garamond', serif;
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #000000;
+            text-decoration: underline;
+            transition: text-decoration 0.3s ease;
+        }
+
+        .description-text a:hover {
+            text-decoration: none;
+        }
+
+        .cta-button {
+            background-color: #000000;
+            color: #ffffff;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            font-size: 1rem;
+            font-weight: 400;
+            font-family: 'Manrope', sans-serif;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            letter-spacing: 0.02em;
+        }
+
+        .cta-button:hover {
+            background-color: #333333;
+        }
+
+        .version-text {
+            font-size: 0.75rem;
+            color: #888888;
+            margin-top: 0.5rem;
+        }
+
+        .arrow-svg {
+            display: inline-block;
+            overflow: hidden;
+        }
+
+        .arrow-tail {
+            transition: all 0.3s ease;
+            transform-origin: left center;
+        }
+
+        .arrow-head {
+            transition: all 0.3s ease;
+            transform-origin: left center;
+        }
+
+        .arrow:hover .arrow-tail {
+            transform: scaleX(0.33);
+        }
+
+        .arrow:hover .arrow-head {
+            transform: translateX(-26px);
+        }
+
+        .cta-links {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .cta-separator {
+            font-size: 0.9rem;
+            font-weight: 400;
+            color: #000000;
+        }
+
+        .underlined-text {
+            text-decoration: underline;
+        }
+
+        .auth-link-mobile {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        .inspiration-link-mobile {
+            display: none;
+            margin-top: 1.5rem;
+        }
+
+        /* Mobile buttons container */
+        .mobile-buttons {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .mobile-button {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+
+        /* Desktop: hide mobile buttons */
+        @media (min-width: 769px) {
+            .mobile-buttons {
+                display: none;
+            }
+        }
+
+        /* Footer */
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 2rem 6rem;
+            font-size: 1.5rem;
+            color: #000000;
+            position: sticky;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background-color: transparent;
+        }
+
+        .footer-link {
+            color: #000000;
+            text-decoration: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .footer-link:hover {
+            opacity: 0.7;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1.5rem 4rem;
+                position: sticky;
+                top: 0;
+                background-color: transparent;
+                z-index: 1000;
+            }
+
+            .nav-link {
+                font-size: 0.9rem;
+            }
+
+            #authLink {
+                display: none;
+            }
+
+            #inspirationLink {
+                display: none;
+            }
+
+            .auth-link-mobile {
+                display: block;
+            }
+
+            .inspiration-link-mobile {
+                display: none;
+            }
+
+            .cta-links {
+                display: none;
+            }
+
+            .mobile-buttons {
+                display: flex;
+            }
+
+            .logo-left {
+                order: 1;
+            }
+
+            .nav-links {
+                order: 2;
+                flex: 1;
+                justify-content: center;
+                gap: 1.2rem;
+            }
+            
+            .music-indicator {
+                position: absolute;
+                right: 4rem;
+            }
+
+            .logo-right {
+                display: none;
+            }
+
+            .main-content {
+                padding: 6rem 4rem 3rem;
+            }
+
+            .title-container {
+                align-items: flex-start;
+                width: 100%;
+                max-width: 360px;
+                padding: 0 2rem;
+            }
+
+            .main-title {
+                font-size: clamp(2.5rem, 8vw, 5rem);
+            }
+
+            .video-container {
+                margin: 1.5rem 0;
+            }
+
+            .logo-carousel-section {
+                margin: 2rem 0;
+                gap: 1.5rem;
+            }
+
+            .logo-carousel-title {
+                font-size: 0.9rem;
+            }
+
+            .logo-carousel-item {
+                height: 50px;
+            }
+
+            .logo-carousel-item img {
+                max-height: 50px;
+                max-width: 120px;
+            }
+
+            .logo-carousel {
+                gap: 3rem;
+            }
+
+            .text-section {
+                margin: 4rem 0;
+                padding: 0 4rem;
+                gap: 1.5rem;
+            }
+
+            .text-section-line1,
+            .text-section-line2 {
+                font-size: 1.5rem;
+            }
+
+            .try-clippy-text {
+                font-size: clamp(2rem, 6vw, 4.5rem);
+            }
+
+            .try-clippy-section {
+                margin-top: 5rem;
+                margin-bottom: 5rem;
+            }
+
+            .image-carousel {
+                gap: 1.5rem;
+            }
+
+            .image-carousel-item img {
+                max-width: 250px;
+                max-height: 150px;
+            }
+
+            .content-section {
+                flex-direction: column;
+                padding: 0 8rem;
+                gap: 2rem;
+            }
+
+            .content-section.reversed {
+                flex-direction: column;
+            }
+
+            .content-section-text {
+                width: 100%;
+            }
+
+            .content-section-video {
+                width: 100%;
+            }
+
+            .subtitle {
+                font-size: 1rem;
+                padding: 0 1rem;
+            }
+
+            .cta-button {
+                padding: 0.8rem 1.5rem;
+                font-size: 1rem;
+            }
+
+            .footer {
+                padding: 1.5rem 4rem;
+                flex-direction: column;
+                gap: 1rem;
+                text-align: center;
+                position: sticky;
+                bottom: 0;
+                background-color: transparent;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 1rem 3rem;
+                position: sticky;
+                top: 0;
+                background-color: transparent;
+                z-index: 1000;
+            }
+
+            #authLink {
+                display: none;
+            }
+
+            #inspirationLink {
+                display: none;
+            }
+
+            .auth-link-mobile {
+                display: block;
+            }
+
+            .inspiration-link-mobile {
+                display: none;
+            }
+
+            .cta-links {
+                display: none;
+            }
+
+            .mobile-buttons {
+                display: flex;
+            }
+
+            .logo-left {
+                order: 1;
+            }
+
+            .nav-links {
+                order: 2;
+                flex: 1;
+                justify-content: center;
+                gap: 1rem;
+            }
+            
+            .music-indicator {
+                position: absolute;
+                right: 3rem;
+            }
+
+            .logo-right {
+                display: none;
+            }
+
+            .main-content {
+                padding: 5rem 3rem 2rem;
+            }
+
+            .title-container {
+                align-items: flex-start;
+                width: 100%;
+                max-width: 360px;
+                padding: 0 2.5rem;
+            }
+
+            .main-title {
+                font-size: clamp(2.5rem, 8vw, 5rem);
+            }
+
+            .video-container {
+                margin: 1.5rem 0;
+            }
+
+            .logo-carousel-section {
+                margin: 2rem 0;
+                gap: 1.5rem;
+            }
+
+            .logo-carousel-title {
+                font-size: 0.85rem;
+            }
+
+            .logo-carousel-item {
+                height: 40px;
+            }
+
+            .logo-carousel-item img {
+                max-height: 40px;
+                max-width: 100px;
+            }
+
+            .logo-carousel {
+                gap: 2.5rem;
+            }
+
+            .text-section {
+                margin: 3rem 0;
+                padding: 0 3rem;
+                gap: 1.5rem;
+            }
+
+            .text-section-line1,
+            .text-section-line2 {
+                font-size: 1.5rem;
+            }
+
+            .try-clippy-text {
+                font-size: clamp(1.5rem, 5vw, 3rem);
+            }
+
+            .try-clippy-section {
+                margin-top: 4rem;
+                margin-bottom: 4rem;
+                gap: 1.5rem;
+            }
+
+            .image-carousel {
+                gap: 1.2rem;
+            }
+
+            .image-carousel-item img {
+                max-width: 200px;
+                max-height: 120px;
+            }
+
+            .content-section {
+                flex-direction: column;
+                padding: 0 6rem;
+                gap: 2rem;
+            }
+
+            .content-section.reversed {
+                flex-direction: column;
+            }
+
+            .content-section-text {
+                width: 100%;
+            }
+
+            .content-section-video {
+                width: 100%;
+            }
+
+            .subtitle {
+                font-size: 0.9rem;
+                padding: 0 0.5rem;
+            }
+        }
+
+        /* Music Indicator */
+        .music-indicator {
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            align-items: center;
+        }
+        
+        @media (min-width: 769px) {
+            .music-indicator {
+                position: fixed;
+                right: 6rem;
+                top: 1.5rem;
+                z-index: 1000;
+            }
+        }
+
+        .music-indicator-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .music-canvas {
+            display: block;
+            width: 24px;
+            height: 24px;
+        }
+
+        /* Hidden SoundCloud player */
+        .hidden-audio {
+            position: absolute;
+            left: -9999px;
+            opacity: 0;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <!-- Hidden SoundCloud Player -->
+    <div class="hidden-audio">
+        <iframe id="soundcloudPlayer" width="100%" height="166" scrolling="no" frameborder="no" allow="autoplay" src=""></iframe>
+    </div>
+
+    <!-- Background Slideshow -->
+    <!-- <div class="background-slideshow">
+        <img src="/assets/background/back1.png" alt="Background 1" class="background-image">
+        <img src="/assets/background/back2.png" alt="Background 2" class="background-image">
+        <img src="/assets/background/back3.png" alt="Background 3" class="background-image">
+        <img src="/assets/background/back4.png" alt="Background 4" class="background-image">
+        <img src="/assets/background/back5.png" alt="Background 5" class="background-image">
+    </div> -->
+    <!-- Header -->
+    <header class="header">
+        <a href="/" class="logo-left" style="color: #000000;">Clippy</a>
+        <nav class="nav-links">
+            <a href="/download" class="nav-link-pricing">Get Homie</a>
+            <a href="/legacy/inspiration" class="nav-link-pricing">Vibes</a>
+            <!-- Music Indicator -->
+            <button class="music-indicator" id="musicIndicator" title="">
+                <div class="music-indicator-inner">
+                    <canvas class="music-canvas" width="24" height="24" id="musicCanvas"></canvas>
+                </div>
+            </button>
+        </nav>
+        <div class="logo-right">Clippy</div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="title-container">
+            <h1 class="main-title">
+                Built to make productivity aesthetic and fun,<br>
+                Clippy is the best way to talk with your mac.
+            </h1>
+            <button class="cta-button">
+                Download for macOS
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-left: 4px;">
+                    <path d="M8 2V14M8 14L4 10M8 14L12 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </button>
+            <p class="version-text"></p>
+        </div>
+        <div class="video-container">
+            <video id="main-video" autoplay loop muted playsinline preload="auto">
+                <source src="/videos/copy_F99AEC7A-6161-4405-A785-E683B9ECD59F.mov" type="video/quicktime">
+                <source src="/videos/copy_F99AEC7A-6161-4405-A785-E683B9ECD59F.mov" type="video/mp4">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+        <div class="logo-carousel-section">
+            <h3 class="logo-carousel-title">Used by superhumans at:</h3>
+            <div class="logo-carousel-wrapper">
+                <div class="logo-carousel" id="logoCarousel">
+                    <div class="logo-carousel-item">
+                        <img src="/assets/logos_svg/McKinsey & Company_idXaAYJuer_0.svg" alt="McKinsey & Company">
+                    </div>
+                    <div class="logo-carousel-item">
+                        <img src="/assets/logos_svg/Harvard University_idRqymu3Cr_0.svg" alt="Harvard University">
+                    </div>
+                    <div class="logo-carousel-item">
+                        <img src="/assets/logos_svg/MIT_id-b5r6bv6_0.svg" alt="MIT">
+                    </div>
+                    <div class="logo-carousel-item">
+                        <img src="/assets/logos_svg/Y Combinator_idmMYQweGN_0.svg" alt="Y Combinator">
+                    </div>
+                    <div class="logo-carousel-item">
+                        <img src="/assets/logos_svg/Stanford University_idJUIPPYM3_0.svg" alt="Stanford University">
+                    </div>
+                    <div class="logo-carousel-item">
+                        <img src="/assets/logos_svg/Columbia University_idbv9F-RqU_0.svg" alt="Columbia University">
+                    </div>
+                    <div class="logo-carousel-item">
+                        <img src="/assets/logos_svg/Meta_idwdgcJw5c_0.svg" alt="Meta">
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="content-section">
+            <div class="content-section-text">
+                <h2 class="content-section-title">
+                    Start writing 5x faster with your voice. In any app.<br>
+                </h2>
+            </div>
+            <div class="content-section-video">
+                <video autoplay loop muted playsinline preload="auto">
+                    <source src="/videos/clippy_home_dictation.mov" type="video/quicktime">
+                    <source src="/videos/clippy_home_dictation.mov" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+        <div class="content-section reversed">
+            <div class="content-section-text">
+                <h2 class="content-section-title">
+                    Edit with GPT anywhere,<br>
+                    just talk or text to Clippy.
+                </h2>
+            </div>
+            <div class="content-section-video">
+                <video autoplay loop muted playsinline preload="auto">
+                    <source src="/videos/clippy_home_voiceGPT.mov" type="video/quicktime">
+                    <source src="/videos/clippy_home_voiceGPT.mov" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+        <div class="content-section">
+            <div class="content-section-text">
+                <h2 class="content-section-title">
+                    Ready when you need it,<br>
+                    invisible when you don't.
+                </h2>
+            </div>
+            <div class="content-section-video">
+                <video autoplay loop muted playsinline preload="auto">
+                    <source src="/videos/clippy_home_textGPT.mov" type="video/quicktime">
+                    <source src="/videos/clippy_home_textGPT.mov" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+        </div>
+        <div class="text-section">
+            <p class="text-section-line1">No more copy-pasting to ChatGPT -- Execute with your voice</p>
+            <p class="text-section-line2">Take Clippy anywhere</p>
+            <div class="image-carousel-wrapper">
+                <div class="image-carousel" id="imageCarousel">
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/cursor_1024x1024x32.png" alt="Cursor">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/terminal_1024x1024x32.png" alt="Terminal">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/mail_512x512x32.png" alt="Mail">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/whatsapp_1024x1024x32.png" alt="WhatsApp">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/arc_1024x1024x32.png" alt="Arc">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/notion_1024x1024x32.png" alt="Notion">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/slack_1024x1024x32.png" alt="Slack">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/gmail_1024x1024x32.png" alt="Gmail">
+                    </div>
+                    <div class="image-carousel-item">
+                        <img src="/assets/app_logos/chatgpt_1024x1024x32.png" alt="ChatGPT">
+                    </div>
+                </div>
+            </div>
+            <div class="try-clippy-section">
+                <h2 class="try-clippy-text">Try Clippy now!</h2>
+                <button class="cta-button">
+                    Download for macOS
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" style="margin-left: 4px;">
+                        <path d="M8 2V14M8 14L4 10M8 14L12 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+                <p class="version-text"></p>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="year">2025</div>
+        <a href="/privacy" class="footer-link">privacy</a>
+    </footer>
+
+    <!-- SoundCloud Widget API -->
+    <script src="https://w.soundcloud.com/player/api.js"></script>
+
+    <!-- Font loading - must run immediately, not in module -->
+    <script>
+        // Wait for fonts to load before showing content to prevent layout shift
+        function showContent() {
+            document.body.classList.add('fonts-loaded');
+        }
+        
+        // Run immediately if body exists, otherwise wait for DOM
+        if (document.body) {
+            if (document.fonts) {
+                // Try to wait for fonts, but set a timeout fallback
+                document.fonts.ready.then(showContent).catch(showContent);
+                // Fallback timeout in case fonts never load
+                setTimeout(showContent, 1000);
+            } else {
+                showContent();
+            }
+        } else {
+            // Wait for DOM to be ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    if (document.fonts) {
+                        document.fonts.ready.then(showContent).catch(showContent);
+                        setTimeout(showContent, 1000);
+                    } else {
+                        showContent();
+                    }
+                });
+            } else {
+                // DOM already ready, show immediately
+                if (document.fonts) {
+                    document.fonts.ready.then(showContent).catch(showContent);
+                    setTimeout(showContent, 1000);
+                } else {
+                    showContent();
+                }
+            }
+        }
+    </script>
+
+    <script type="module">
+        // Download button functionality - fetches latest DMG URL from Supabase
+        const SUPABASE_URL = 'https://clfhvkbcdqhssucnmjtd.supabase.co';
+
+        async function handleDownload() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-latest-version`);
+                const data = await response.json();
+
+                if (data.dmg_url) {
+                    window.location.href = data.dmg_url;
+                } else {
+                    console.error('No DMG URL available');
+                    alert('Download not available. Please try again later.');
+                }
+            } catch (error) {
+                console.error('Error fetching download URL:', error);
+                alert('Failed to start download. Please try again.');
+            }
+        }
+
+        async function displayVersion() {
+            try {
+                const response = await fetch(`${SUPABASE_URL}/functions/v1/get-latest-version`);
+                const data = await response.json();
+                if (data.version) {
+                    document.querySelectorAll('.version-text').forEach(el => {
+                        el.textContent = `v${data.version}`;
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching version:', error);
+            }
+        }
+
+        // Background slideshow functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Attach click handlers to all download buttons
+            document.querySelectorAll('.cta-button').forEach(button => {
+                button.addEventListener('click', handleDownload);
+            });
+
+            // Display version on page load
+            displayVersion();
+            // Function to setup video
+            function setupVideo(video) {
+                if (!video) return;
+                
+                // Ensure video is set to loop
+                video.loop = true;
+                video.muted = true;
+                video.playsInline = true;
+                
+                // Prevent pausing
+                video.addEventListener('pause', function(e) {
+                    e.preventDefault();
+                    video.play();
+                });
+                
+                // Prevent context menu
+                video.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                });
+                
+                // Ensure video plays when it ends (backup for loop)
+                video.addEventListener('ended', function() {
+                    video.currentTime = 0;
+                    video.play();
+                });
+                
+                // Try to play the video
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(function() {
+                        console.log('Video: Autoplay started successfully');
+                    }).catch(function(error) {
+                        console.error('Video autoplay prevented:', error);
+                    });
+                }
+            }
+            
+            // Setup main video
+            const mainVideo = document.getElementById('main-video');
+            if (mainVideo) {
+                // Debug: Log video loading events
+                mainVideo.addEventListener('loadstart', function() {
+                    console.log('Main Video: Loading started');
+                });
+                
+                mainVideo.addEventListener('loadeddata', function() {
+                    console.log('Main Video: Data loaded');
+                });
+                
+                mainVideo.addEventListener('canplay', function() {
+                    console.log('Main Video: Can play');
+                });
+                
+                mainVideo.addEventListener('error', function(e) {
+                    console.error('Main Video error:', mainVideo.error);
+                    console.error('Error code:', mainVideo.error ? mainVideo.error.code : 'unknown');
+                    console.error('Error message:', mainVideo.error ? mainVideo.error.message : 'unknown');
+                });
+                
+                setupVideo(mainVideo);
+            } else {
+                console.error('Main video element not found');
+            }
+            
+            // Setup all content section videos
+            const contentVideos = document.querySelectorAll('.content-section-video video');
+            contentVideos.forEach(function(video) {
+                setupVideo(video);
+            });
+
+            // Setup logo carousel for seamless infinite scroll
+            const logoCarousel = document.getElementById('logoCarousel');
+            if (logoCarousel) {
+                // Get original logo items (before any cloning)
+                const originalItems = Array.from(logoCarousel.querySelectorAll('.logo-carousel-item'));
+                
+                // Log for debugging
+                console.log('Found', originalItems.length, 'logo items');
+                
+                // Clone all logo items once for seamless infinite loop
+                // This creates: [original 5] + [duplicate 5] = 10 total
+                // Animation goes from 0 to -50%, which shows first 5, then seamlessly loops
+                originalItems.forEach(function(item) {
+                    const clone = item.cloneNode(true);
+                    logoCarousel.appendChild(clone);
+                });
+                
+                // Check for image load errors
+                const images = logoCarousel.querySelectorAll('img');
+                images.forEach(function(img, index) {
+                    img.addEventListener('error', function() {
+                        console.error('Failed to load logo:', img.src);
+                    });
+                    img.addEventListener('load', function() {
+                        console.log('Successfully loaded logo:', index + 1, img.alt);
+                    });
+                });
+            }
+
+            // Setup image carousel for seamless infinite scroll
+            const imageCarousel = document.getElementById('imageCarousel');
+            if (imageCarousel) {
+                // Get original image items (before any cloning)
+                const originalImageItems = Array.from(imageCarousel.querySelectorAll('.image-carousel-item'));
+                
+                // Clone all image items once for seamless infinite loop (same as logo carousel)
+                // This creates: [original] + [duplicate] = seamless loop
+                // Animation goes from 0 to -50%, which shows first set, then seamlessly loops
+                originalImageItems.forEach(function(item) {
+                    const clone = item.cloneNode(true);
+                    imageCarousel.appendChild(clone);
+                });
+            }
+            
+            // const backgroundImages = document.querySelectorAll('.background-image');
+            // let currentImageIndex = 0;
+            // let isShowingImage = false;
+
+            // function showImage() {
+            //     if (isShowingImage) return;
+            //     isShowingImage = true;
+            //     
+            //     const nextImage = backgroundImages[currentImageIndex];
+            //     
+            //     // Reset blur to default and show image
+            //     nextImage.style.filter = 'blur(8px)';
+            //     nextImage.classList.add('active');
+            //     
+            //     // Start blur sequence
+            //     setTimeout(() => {
+            //         nextImage.style.filter = 'blur(15px)'; // Transition from 8px to 15px
+            //     }, 500);
+            //     
+            //     setTimeout(() => {
+            //         nextImage.style.filter = 'blur(0px)'; // Go to sharp and stay sharp
+            //     }, 1000);
+            //     
+            //     // Hide image after 4 seconds and wait 5 seconds before next
+            //     setTimeout(() => {
+            //         nextImage.classList.remove('active');
+            //         isShowingImage = false;
+            //         currentImageIndex = (currentImageIndex + 1) % backgroundImages.length;
+            //         
+            //         // Wait 5 seconds before showing next image
+            //         setTimeout(() => {
+            //             showImage();
+            //         }, 5000);
+            //     }, 4000);
+            // }
+
+            // Start slideshow after 10 seconds
+            // setTimeout(() => {
+            //     showImage();
+            // }, 10000);
+        });
+
+        // Music Player Control
+        (function() {
+            const canvas = document.getElementById('musicCanvas');
+            const ctx = canvas.getContext('2d');
+            const musicIndicator = document.getElementById('musicIndicator');
+            const iframe = document.getElementById('soundcloudPlayer');
+            
+            let widget = null;
+            let isPlaying = false;
+            let animationId = null;
+            let hasStarted = false;
+            let widgetReady = false;
+
+            // Song library
+            const songs = [
+                {
+                    title: "Darker Than This - Emile Mosseri",
+                    trackId: "886849774",
+                    startTime: 0
+                }
+                // {
+                //     title: "Ava - ben salisbury",
+                //     trackId: "210595933",
+                //     startTime: 0
+                // },
+                // {
+                //     title: "claire de lune - coco",
+                //     trackId: "927748312",
+                //     startTime: 0
+                // },
+                // {
+                //     title: "Bundle of Joy - Jartisto",
+                //     trackId: "953021434",
+                //     startTime: 0
+                // },
+                // {
+                //     title: "Falaise - Floating Points",
+                //     trackId: "660183065",
+                //     startTime: 24000 // 24 seconds in milliseconds
+                // },
+                // {
+                //     title: "I Saw You - Fred again.. & Brian Eno",
+                //     trackId: "1507198033",
+                //     startTime: 0
+                // }
+            ];
+
+            // Randomly select a song
+            const selectedSong = songs[Math.floor(Math.random() * songs.length)];
+            console.log('Selected song:', selectedSong.title);
+
+            // Set the iframe src with the selected track
+            iframe.src = `https://w.soundcloud.com/player/?url=https%3A//api.soundcloud.com/tracks/${selectedSong.trackId}&color=%230a0101&auto_play=false&hide_related=false&show_comments=true&show_user=true&show_reposts=false&show_teaser=true`;
+
+            // Set the tooltip
+            musicIndicator.title = selectedSong.title;
+
+            // Initialize SoundCloud Widget
+            if (typeof SC !== 'undefined') {
+                widget = SC.Widget(iframe);
+                
+                // Wait for widget to be ready
+                widget.bind(SC.Widget.Events.READY, function() {
+                    console.log('SoundCloud widget ready');
+                    widgetReady = true;
+                    
+                    // Start at the specified time
+                    if (selectedSong.startTime > 0) {
+                        widget.seekTo(selectedSong.startTime);
+                    }
+                    
+                    // Listen for play/pause events
+                    widget.bind(SC.Widget.Events.PLAY, function() {
+                        // Ensure it starts at correct time on first play
+                        if (!hasStarted && selectedSong.startTime > 0) {
+                            widget.seekTo(selectedSong.startTime);
+                            hasStarted = true;
+                        }
+                        isPlaying = true;
+                        startVisualization();
+                    });
+                    
+                    widget.bind(SC.Widget.Events.PAUSE, function() {
+                        isPlaying = false;
+                        stopVisualization();
+                    });
+                    
+                    widget.bind(SC.Widget.Events.FINISH, function() {
+                        isPlaying = false;
+                        stopVisualization();
+                    });
+                });
+            }
+
+            // Click to toggle play/pause
+            musicIndicator.addEventListener('click', function() {
+                if (widget && widgetReady) {
+                    widget.isPaused(function(paused) {
+                        if (paused) {
+                            widget.play();
+                        } else {
+                            widget.pause();
+                        }
+                    });
+                }
+            });
+
+            // Visualization animation
+            function drawVisualizer() {
+                const width = canvas.width;
+                const height = canvas.height;
+                const centerX = width / 2;
+                const centerY = height / 2;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, width, height);
+                
+                if (isPlaying) {
+                    // Draw pause icon (two vertical bars) when playing
+                    ctx.fillStyle = '#000000';
+                    const pauseBarWidth = 2;
+                    const pauseBarHeight = 10;
+                    const pauseBarSpacing = 3;
+                    
+                    // Left bar
+                    ctx.fillRect(centerX - pauseBarSpacing / 2 - pauseBarWidth, centerY - pauseBarHeight / 2, pauseBarWidth, pauseBarHeight);
+                    // Right bar
+                    ctx.fillRect(centerX + pauseBarSpacing / 2, centerY - pauseBarHeight / 2, pauseBarWidth, pauseBarHeight);
+                } else {
+                    // Draw animated bars (3 bars) when paused
+                    const barCount = 3;
+                    const barWidth = 2;
+                    const barSpacing = 3;
+                    const maxBarHeight = 12;
+                    const time = Date.now() / 100;
+                    
+                    ctx.fillStyle = '#000000';
+                    
+                    for (let i = 0; i < barCount; i++) {
+                        // Create wave effect with different frequencies
+                        const barHeight = maxBarHeight * (0.3 + 0.7 * Math.abs(Math.sin(time + i * 0.5)));
+                        const x = centerX - (barCount * (barWidth + barSpacing) / 2) + i * (barWidth + barSpacing) + barSpacing / 2;
+                        const y = centerY - barHeight / 2;
+                        
+                        ctx.fillRect(x, y, barWidth, barHeight);
+                    }
+                }
+            }
+
+            function startVisualization() {
+                if (animationId) return;
+                
+                function animate() {
+                    drawVisualizer();
+                    animationId = requestAnimationFrame(animate);
+                }
+                animate();
+            }
+
+            function stopVisualization() {
+                if (animationId) {
+                    cancelAnimationFrame(animationId);
+                    animationId = null;
+                }
+                // Start animation again for paused state (waveform)
+                startVisualization();
+            }
+
+            // Initial draw and start animation
+            drawVisualizer();
+            startVisualization();
+
+            // On mobile, trigger a click on page load to initialize the player
+            // This ensures the first real user click will work properly
+            function isMobileDevice() {
+                return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth <= 768;
+            }
+
+            if (isMobileDevice()) {
+                // Wait for widget to be ready before triggering initial click
+                const checkReadyAndClick = setInterval(function() {
+                    if (widgetReady) {
+                        clearInterval(checkReadyAndClick);
+                        // Trigger a programmatic click after a short delay
+                        setTimeout(function() {
+                            musicIndicator.click();
+                        }, 500);
+                    }
+                }, 100);
+            }
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+# DMG files
+*.dmg
+homie/*.dmg
+
+# macOS
+**/.DS_Store
+homie/Local.xcconfig
+supabase/.temp
+.env
+
+.wrangler/
+node_modules/
+homie/release/appcast.xml

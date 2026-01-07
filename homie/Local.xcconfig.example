@@ -1,0 +1,28 @@
+//
+//  Local.xcconfig.example
+//  homie
+//
+//  Copy this file to Local.xcconfig and fill in your values.
+//  Local.xcconfig is git-ignored and will not be committed.
+//
+
+// Your Apple Developer Team ID (found in Apple Developer Portal -> Membership)
+DEVELOPMENT_TEAM = YOUR_TEAM_ID_HERE
+
+// Bundle identifier for the app
+PRODUCT_BUNDLE_IDENTIFIER = com.homie.app
+
+// App version (update this for each release)
+MARKETING_VERSION = 0.4.0-alpha.4
+
+// Code signing - use Automatic for development
+CODE_SIGN_STYLE = Automatic
+
+// Supabase configuration
+// Get these values from your Supabase project settings
+SUPABASE_URL = https://your-project.supabase.co
+SUPABASE_ANON_KEY = your_supabase_anon_key_here
+
+// Sparkle appcast URL for auto-updates
+// This should point to where your appcast.xml is hosted
+APPCAST_URL = https://your-storage-url/appcast.xml
