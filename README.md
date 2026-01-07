@@ -2,8 +2,19 @@
 
 A voice-controlled AI assistant for macOS with local speech processing and cloud AI integration.
 
-<!-- TODO: Add demo screenshot or gif -->
-![Demo](demo.gif)
+## Features
+
+![Voice commands with MCP](assets/clippy_01.png)
+*Voice commands trigger MCP integrations with Notion, Linear, Google Calendar, and more.*
+
+![Email assistant](assets/clippy_02.png)
+*Draft email replies instantly without copy-pasting to ChatGPT.*
+
+![Local dictation](assets/clippy_03.png)
+*Real-time speech-to-text dictation powered by local Whisper models.*
+
+![Feature overview](assets/clippy_04.png)
+*Feature overview: voice commands, MCP connections, local LLMs, multi-language support, and app integrations.*
 
 ## Prerequisites
 
