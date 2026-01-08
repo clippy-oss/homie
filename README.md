@@ -63,8 +63,6 @@ supabase functions deploy
 
 Copy `.env.example` to `.env` and configure:
 
-- **Cloudflare R2** - Storage for app distribution
-- **Apple credentials** - Code signing and notarization
 - **Supabase** - Backend URL and keys
 
 See [.env.example](.env.example) for all required variables.
