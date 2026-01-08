@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import DynamicNotchKit
 
 /// The different expansion modes for the notch
 enum NotchExpansionMode: String, CaseIterable {
