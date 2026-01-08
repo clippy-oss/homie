@@ -305,16 +305,38 @@ struct DevicePairingView: View {
     }
 
     private func listenForCodePairingSuccess() {
-        // Monitor connection status for success
+        // Subscribe to connection status events instead of polling
         Task { @MainActor in
-            // Poll connection status
-            for _ in 0..<60 { // Check for up to 60 seconds
-                try? await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+            Logger.info("Code pairing: subscribing to connection status events", module: "Pairing")
 
-                if provider.isLoggedIn {
-                    isPairingSuccessful = true
-                    return
+            // Create a timeout task
+            let timeoutTask = Task {
+                try? await Task.sleep(nanoseconds: 60_000_000_000) // 60 seconds
+                return true
+            }
+
+            // Subscribe to connection status events
+            let eventStream = provider.subscribeToEvents(types: [.connectionStatus])
+
+            // Wait for either a connected event or timeout
+            for await event in eventStream {
+                if case .connectionStatus(let status) = event {
+                    Logger.info("Code pairing: received connection status: \(status)", module: "Pairing")
+                    if status.isConnected && provider.isLoggedIn {
+                        timeoutTask.cancel()
+                        isPairingSuccessful = true
+                        Logger.info("Code pairing: pairing successful!", module: "Pairing")
+                        return
+                    }
                 }
+            }
+
+            // If we get here, the stream ended without success - check final status
+            if provider.isLoggedIn {
+                isPairingSuccessful = true
+                Logger.info("Code pairing: pairing successful (stream ended)", module: "Pairing")
+            } else {
+                Logger.warning("Code pairing: timed out waiting for pairing success", module: "Pairing")
             }
         }
     }
