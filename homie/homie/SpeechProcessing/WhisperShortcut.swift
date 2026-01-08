@@ -14,8 +14,8 @@ class VoiceGPTShortcut: ShortcutHandler {
         
         // Load custom key binding from UserDefaults or use default
         let userDefaults = UserDefaults.standard
-        let defaultKey = "i"
-        let defaultModifiers = GlobalKeyboardShortcutManager.controlKeyModifier | GlobalKeyboardShortcutManager.shiftKeyModifier
+        let defaultKey = "space"
+        let defaultModifiers = GlobalKeyboardShortcutManager.fnKeyModifier
         
         if let savedKey = userDefaults.string(forKey: "shortcut_voicegpt_key"),
            userDefaults.object(forKey: "shortcut_voicegpt_modifiers") != nil {

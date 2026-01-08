@@ -904,6 +904,10 @@ class FloatingViewController: NSViewController {
                     self?.useRawDictation = false
                 }
             }
+            // Hide the voice notch since no processing will happen
+            Task { @MainActor in
+                NotchManager.shared.hideVoiceNotch()
+            }
             return
         }
 
@@ -923,6 +927,10 @@ class FloatingViewController: NSViewController {
     private func handleDictationError(_ error: Error) {
         Logger.error("Whisper error: \(error.localizedDescription)", module: "Speech")
         updatePanelForRecordingState(active: false)
+        // Hide the voice notch on error
+        Task { @MainActor in
+            NotchManager.shared.hideVoiceNotch()
+        }
     }
     
     // MARK: - Noise Annotation Filtering
@@ -1044,6 +1052,8 @@ class FloatingViewController: NSViewController {
             
             // Reset the flag for next use
             self?.useRawDictation = false
+            
+            // Note: pasteResponseAtCursor will hide the voice notch (Processing state)
         }
     }
     
@@ -1105,7 +1115,39 @@ class FloatingViewController: NSViewController {
                 if hasTools {
                     // Non-streaming path: MCP tool calling requires complete response
                     Logger.info("🔧 Using non-streaming path (MCP tools connected)", module: "LLM")
-                    let response = try await LLMRouter.shared.processQuery(transcribedText, context: contextText)
+                    
+                    // Create tool confirmation handler
+                    let toolConfirmationHandler: OpenAIServiceImpl.ToolCallConfirmationHandler = { [weak self] toolCall in
+                        // Auto-approve read-only tools (get, list, search operations)
+                        let readOnlyToolPrefixes = ["linear_get", "linear_list", "calendar_list", "calendar_get"]
+                        let isReadOnly = readOnlyToolPrefixes.contains { toolCall.function.name.hasPrefix($0) }
+                        
+                        if isReadOnly {
+                            Logger.info("🔓 Auto-approving read-only tool: \(toolCall.function.name)", module: "LLM")
+                            return toolCall
+                        }
+                        
+                        // Show tool confirmation in notch and wait for user decision for write operations
+                        return await withCheckedContinuation { continuation in
+                            Task { @MainActor in
+                                NotchManager.shared.showToolConfirmation(
+                                    toolCall: toolCall,
+                                    onApproved: { confirmedToolCall in
+                                        continuation.resume(returning: confirmedToolCall)
+                                    },
+                                    onCancelled: {
+                                        continuation.resume(returning: nil)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    
+                    let response = try await LLMRouter.shared.processQuery(
+                        transcribedText,
+                        context: contextText,
+                        toolConfirmationHandler: toolConfirmationHandler
+                    )
                     await handleCompleteResponse(response, transcribedText: transcribedText)
                 } else {
                     // Streaming path: real-time text display
@@ -1130,6 +1172,10 @@ class FloatingViewController: NSViewController {
                     self?.isProcessingWithAI = false
                     self?.shouldCloseAfterAIResponse = false
                     self?.hideThinkingState()
+                    // Hide the voice notch on error
+                    Task { @MainActor in
+                        NotchManager.shared.hideVoiceNotch()
+                    }
                 }
             }
         }
@@ -1227,6 +1273,11 @@ class FloatingViewController: NSViewController {
         cmdVEventUp?.post(tap: .cghidEventTap)
 
         Logger.debug("Automatically pasted response at cursor position", module: "FloatingVC")
+        
+        // Hide the voice notch now that processing is complete and pasted
+        Task { @MainActor in
+            NotchManager.shared.hideVoiceNotch()
+        }
     }
 
     // MARK: - Transcription Filtering

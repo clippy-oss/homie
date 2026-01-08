@@ -125,8 +125,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
         }
         
         Logger.info("Homie app started!", module: "App")
-        Logger.info("Press Shift+Control+I to toggle the floating window with VoiceGPT transcription.", module: "App")
-        Logger.info("Press Shift+Control+O to toggle dictation recording and transcription.", module: "App")
+        Logger.info("Press Fn+Space to toggle the floating window with VoiceGPT transcription.", module: "App")
+        Logger.info("Press Fn+X to toggle dictation recording and transcription.", module: "App")
         Logger.info("Press Shift+Control+K to toggle text entry mode.", module: "App")
     }
     
@@ -396,27 +396,34 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
     }
     
     public func showVisualPopup() {
-        // Toggle the floating window with microphone recording functionality
+        // Toggle dictation recording functionality (notch only, no visual popup)
         guard let windowController = floatingWindowController else { return }
         
-        let isWindowVisible = windowController.window?.isVisible == true
         let isWhisperActive = windowController.isWhisperTranscriptionActive()
         
-        if isWindowVisible {
-            // Window is visible, stop recording and transcribe
-            if isWhisperActive {
-                Logger.info("🛑 Stopping microphone recording and transcribing...", module: "App")
-                windowController.stopWhisperTranscription()
-                
-                // The transcription will be processed automatically via the callback
-                // and the result will be copied to clipboard
+        if isWhisperActive {
+            // Recording is active, stop recording and transcribe
+            Logger.info("🛑 Stopping microphone recording and transcribing...", module: "App")
+            windowController.stopWhisperTranscription()
+            
+            // The transcription will be processed automatically via the callback
+            // and the result will be copied to clipboard
+            
+            // Transition from listening to processing (raw dictation mode)
+            Task { @MainActor in
+                NotchManager.shared.showProcessing()
             }
             
-            // Hide the window
-            hideFloatingWindow()
+            // Hide the window (commented out - no visual popup)
+            // hideFloatingWindow()
         } else {
-            // Window is hidden, show it and start recording
+            // Not recording, start recording
             Logger.info("🎤 Starting microphone recording...", module: "App")
+            
+            // Show the listening notch
+            Task { @MainActor in
+                NotchManager.shared.showListening()
+            }
             
             // Clear pasteboard so identical selections count as new and avoid stale content
             let pasteboard = NSPasteboard.general
@@ -449,11 +456,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
                     Logger.info("📋 No text was selected for visual popup", module: "App")
                 }
 
-                // Set context text and show window
-                self?.floatingWindowController?.setContextText(contextText)
-                self?.floatingWindowController?.showWindow()
+                // Set context text (commented out - no visual popup)
+                // self?.floatingWindowController?.setContextText(contextText)
+                // self?.floatingWindowController?.showWindow()
 
-                // Start microphone recording after window is shown
+                // Start microphone recording
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
                     self?.floatingWindowController?.startWhisperTranscriptionRaw()
                 }
@@ -462,79 +469,83 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
     }
     
     public func toggleFloatingWindow() {
+        // Toggle VoiceGPT transcription functionality (notch only, no visual popup)
         guard let windowController = floatingWindowController else { return }
         
-        let isWindowVisible = windowController.window?.isVisible == true
         let isWhisperActive = windowController.isWhisperTranscriptionActive()
+        let isAIProcessing = windowController.isAIProcessing()
         
-        if isWindowVisible {
-            // Window is visible, stop transcription and process text
-            if isWhisperActive {
-                Logger.info("🛑 Stopping Whisper transcription and processing...", module: "App")
-                
-                // Mark to close after AI response (AI processing will start after transcription finishes)
-                windowController.requestCloseAfterAIResponse()
-                
-                // Stop the transcription - this will trigger finalizeDictation which starts AI processing
-                windowController.stopWhisperTranscription()
-                
-                // Don't hide the window - let it close automatically after AI response
-                return
+        if isWhisperActive {
+            // Recording is active, stop transcription and process text
+            Logger.info("🛑 Stopping Whisper transcription and processing...", module: "App")
+            
+            // Transition from listening to thinking (AI processing will start)
+            Task { @MainActor in
+                NotchManager.shared.showThinking()
             }
             
-            // Check if AI is currently processing
-            if windowController.isAIProcessing() {
-                // Don't hide immediately - mark to close after AI response
-                Logger.info("🤖 AI is processing - will close after response is generated", module: "App")
-                windowController.requestCloseAfterAIResponse()
-                return
-            }
+            // Mark to close after AI response (AI processing will start after transcription finishes)
+            // (commented out - no visual popup)
+            // windowController.requestCloseAfterAIResponse()
             
-            // Hide the window
-            hideFloatingWindow()
-        } else {
-            // Window is hidden, start whisper transcription and show window
-            Logger.info("🎤 Starting Whisper transcription...", module: "App")
+            // Stop the transcription - this will trigger finalizeDictation which starts AI processing
+            windowController.stopWhisperTranscription()
             
-            // Clear pasteboard so identical selections count as new and avoid stale content
-            let pasteboard = NSPasteboard.general
-            pasteboard.clearContents()
-            let initialChangeCount = pasteboard.changeCount
+            return
+        }
+        
+        if isAIProcessing {
+            // AI is currently processing, just log it
+            Logger.info("🤖 AI is processing...", module: "App")
+            return
+        }
+        
+        // Not recording and not processing, start whisper transcription
+        Logger.info("🎤 Starting Whisper transcription...", module: "App")
+        
+        // Show the listening notch
+        Task { @MainActor in
+            NotchManager.shared.showListening()
+        }
+        
+        // Clear pasteboard so identical selections count as new and avoid stale content
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        let initialChangeCount = pasteboard.changeCount
 
-            // Only simulate Cmd+C if text is actually selected (prevents system beep)
-            if hasSelectedText() {
-                // Simulate Cmd+C to copy any selected text
-                let source = CGEventSource(stateID: .combinedSessionState)
-                let keyDown = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_C), keyDown: true)
-                let keyUp = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_C), keyDown: false)
-                keyDown?.flags = .maskCommand
+        // Only simulate Cmd+C if text is actually selected (prevents system beep)
+        if hasSelectedText() {
+            // Simulate Cmd+C to copy any selected text
+            let source = CGEventSource(stateID: .combinedSessionState)
+            let keyDown = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_C), keyDown: true)
+            let keyUp = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_C), keyDown: false)
+            keyDown?.flags = .maskCommand
 
-                keyDown?.post(tap: .cghidEventTap)
-                keyUp?.post(tap: .cghidEventTap)
+            keyDown?.post(tap: .cghidEventTap)
+            keyUp?.post(tap: .cghidEventTap)
+        }
+
+        // Check clipboard content after a slightly longer delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+            let pb = NSPasteboard.general
+            let text = pb.string(forType: .string)
+            let didChange = pb.changeCount != initialChangeCount
+            let hasNonEmpty = (text?.isEmpty == false)
+            let contextText: String? = (didChange || hasNonEmpty) ? text : nil
+
+            if let preview = contextText?.prefix(50), !preview.isEmpty {
+                Logger.info("📋 Captured selected text: \(preview)...", module: "App")
+            } else {
+                Logger.info("📋 No text was selected", module: "App")
             }
 
-            // Check clipboard content after a slightly longer delay
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
-                let pb = NSPasteboard.general
-                let text = pb.string(forType: .string)
-                let didChange = pb.changeCount != initialChangeCount
-                let hasNonEmpty = (text?.isEmpty == false)
-                let contextText: String? = (didChange || hasNonEmpty) ? text : nil
+            // Set context text (commented out - no visual popup)
+            // self?.floatingWindowController?.setContextText(contextText)
+            // self?.floatingWindowController?.showWindow()
 
-                if let preview = contextText?.prefix(50), !preview.isEmpty {
-                    Logger.info("📋 Captured selected text: \(preview)...", module: "App")
-                } else {
-                    Logger.info("📋 No text was selected", module: "App")
-                }
-
-                // Set context text and show window
-                self?.floatingWindowController?.setContextText(contextText)
-                self?.floatingWindowController?.showWindow()
-
-                // Start whisper transcription after window is shown
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                    self?.floatingWindowController?.startWhisperTranscription()
-                }
+            // Start whisper transcription
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                self?.floatingWindowController?.startWhisperTranscription()
             }
         }
     }

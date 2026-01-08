@@ -82,12 +82,14 @@ final class FeatureGateway {
     ///   - context: Optional context for the request
     ///   - tools: Optional MCP tools for premium users (OpenAI format)
     ///   - userInstructions: Optional system instructions
+    ///   - toolConfirmationHandler: Optional handler to confirm/modify tool calls before execution
     /// - Returns: FeatureAccessResult containing the response string or denial reason
     func processChat(
         messages: [[String: String]],
         context: String? = nil,
         tools: [[String: Any]]? = nil,
-        userInstructions: String? = nil
+        userInstructions: String? = nil,
+        toolConfirmationHandler: OpenAIServiceImpl.ToolCallConfirmationHandler? = nil
     ) async -> FeatureAccessResult<String> {
 
         // Step 1: Check authentication
@@ -119,7 +121,8 @@ final class FeatureGateway {
                 let response = try await openAIService.generateResponseWithTools(
                     messages: messages,
                     tools: tools,
-                    userInstructions: userInstructions
+                    userInstructions: userInstructions,
+                    toolConfirmationHandler: toolConfirmationHandler
                 )
                 return .success(response)
             } catch {

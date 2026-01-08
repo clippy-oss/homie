@@ -57,7 +57,7 @@ class GoogleCalendarMCPServer: BaseMCPServer {
             ),
             MCPTool(
                 name: "calendar_create_event",
-                description: "Create a new event in Google Calendar",
+                description: "Create a new event in Google Calendar. Today is \(todayDateString), tomorrow is \(tomorrowDateString).",
                 parameters: MCPToolParameters(
                     type: "object",
                     properties: [
@@ -75,13 +75,13 @@ class GoogleCalendarMCPServer: BaseMCPServer {
                         ),
                         "startDateTime": MCPToolProperty(
                             type: "string",
-                            description: "Start date and time in ISO 8601 format (e.g., '2024-01-15T10:00:00')",
+                            description: "Start date and time in ISO 8601 format (e.g., '\(todayDateString)T10:00:00'). Today is \(todayDateString).",
                             enumValues: nil,
                             items: nil
                         ),
                         "endDateTime": MCPToolProperty(
                             type: "string",
-                            description: "End date and time in ISO 8601 format",
+                            description: "End date and time in ISO 8601 format (e.g., '\(todayDateString)T11:00:00')",
                             enumValues: nil,
                             items: nil
                         ),
@@ -492,6 +492,23 @@ class GoogleCalendarMCPServer: BaseMCPServer {
 
         setCredentials(newCredentials)
         Logger.info("✅ GoogleCalendarMCPServer: Token refreshed", module: "MCP")
+    }
+    
+    // MARK: - Date Helpers
+    
+    /// Today's date in YYYY-MM-DD format
+    private var todayDateString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        return formatter.string(from: Date())
+    }
+    
+    /// Tomorrow's date in YYYY-MM-DD format
+    private var tomorrowDateString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
+        return formatter.string(from: tomorrow)
     }
     
     // MARK: - Helpers

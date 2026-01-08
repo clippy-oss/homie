@@ -318,6 +318,7 @@ struct NotionHomeView: View {
     @ObservedObject private var authStore = AuthSessionStore.shared
     @ObservedObject private var entitlementStore = FeatureEntitlementStore.shared
     @ObservedObject private var localLLMStore = LocalLLMModelStore.shared
+    @ObservedObject private var notchManager = NotchManager.shared
     @State private var shortcuts: [ShortcutInfo] = []
     
     struct ShortcutInfo: Identifiable {
@@ -472,9 +473,39 @@ struct NotionHomeView: View {
     private var homeView: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Welcome message
-            Text("Welcome to Clippy")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+            HStack {
+                Text("Welcome to Clippy")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                // Notch expansion mode buttons
+                HStack(spacing: 8) {
+                    ForEach(NotchExpansionMode.allCases, id: \.self) { mode in
+                        NotchModeButton(
+                            mode: mode,
+                            isActive: notchManager.isExpanded && notchManager.currentMode == mode,
+                            action: { notchManager.toggle(mode: mode) }
+                        )
+                    }
+                    
+                    // Close button (only shown when expanded)
+                    if notchManager.isExpanded {
+                        Button(action: {
+                            notchManager.hide()
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 12, weight: .bold))
+                                .padding(8)
+                                .background(Color.red.opacity(0.2))
+                                .foregroundColor(.red)
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
@@ -646,6 +677,30 @@ struct NotionHomeView: View {
     
 }
 
+// MARK: - Notch Mode Button
+
+struct NotchModeButton: View {
+    let mode: NotchExpansionMode
+    let isActive: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: mode.icon)
+                    .font(.system(size: 12))
+                Text(mode.rawValue)
+                    .font(.system(size: 12))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isActive ? Color.yellow : Color.yellow.opacity(0.15))
+            .foregroundColor(isActive ? .black : .yellow)
+            .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 #Preview {
     NotionHomeView()

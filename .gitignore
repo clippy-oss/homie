@@ -11,3 +11,4 @@ supabase/.temp
 .wrangler/
 node_modules/
 homie/release/appcast.xml
+DynamicNotchKit-main/.swiftformat

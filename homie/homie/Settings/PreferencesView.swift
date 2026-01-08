@@ -110,6 +110,57 @@ struct PreferencesView: View {
                     .padding()
                     .background(Color(NSColor.controlBackgroundColor).opacity(0.7))
                     .cornerRadius(8)
+                    
+                    // Debug section
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Debug Tools")
+                            .font(.headline)
+                        
+                        HStack(spacing: 12) {
+                            Button(action: {
+                                Task { @MainActor in
+                                    NotchManager.shared.debugShowLinearToolConfirmation()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "square.stack.3d.up")
+                                        .foregroundColor(.indigo)
+                                    Text("Linear Notch")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                            
+                            Button(action: {
+                                Task { @MainActor in
+                                    NotchManager.shared.debugShowCalendarToolConfirmation()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "calendar")
+                                        .foregroundColor(.red)
+                                    Text("Calendar Notch")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        Text("Test tool confirmation UIs with mock data")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.7))
+                    .cornerRadius(8)
                 }
                 .padding()
             }
