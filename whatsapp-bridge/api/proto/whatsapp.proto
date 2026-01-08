@@ -1,0 +1,342 @@
+syntax = "proto3";
+
+package whatsapp.v1;
+
+option go_package = "github.com/clippy-oss/homie/whatsapp-bridge/pkg/pb";
+
+import "google/protobuf/timestamp.proto";
+
+// WhatsAppService provides methods for interacting with WhatsApp.
+service WhatsAppService {
+  // Connect establishes a connection to WhatsApp servers.
+  rpc Connect(ConnectRequest) returns (ConnectResponse);
+
+  // Disconnect terminates the connection to WhatsApp servers.
+  rpc Disconnect(DisconnectRequest) returns (DisconnectResponse);
+
+  // Logout clears the session and removes device pairing.
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+
+  // GetConnectionStatus returns the current connection status.
+  rpc GetConnectionStatus(GetConnectionStatusRequest) returns (GetConnectionStatusResponse);
+
+  // GetPairingQR streams QR codes for device pairing.
+  rpc GetPairingQR(GetPairingQRRequest) returns (stream PairingQREvent);
+
+  // PairWithCode pairs using a phone number and returns a pairing code.
+  rpc PairWithCode(PairWithCodeRequest) returns (PairWithCodeResponse);
+
+  // GetChats retrieves a list of chats.
+  rpc GetChats(GetChatsRequest) returns (GetChatsResponse);
+
+  // GetChat retrieves a single chat by JID.
+  rpc GetChat(GetChatRequest) returns (GetChatResponse);
+
+  // GetMessages retrieves messages from a chat.
+  rpc GetMessages(GetMessagesRequest) returns (GetMessagesResponse);
+
+  // SendMessage sends a message to a chat.
+  rpc SendMessage(SendMessageRequest) returns (SendMessageResponse);
+
+  // SendReaction sends a reaction to a message.
+  rpc SendReaction(SendReactionRequest) returns (SendReactionResponse);
+
+  // MarkAsRead marks messages as read.
+  rpc MarkAsRead(MarkAsReadRequest) returns (MarkAsReadResponse);
+
+  // StreamEvents streams real-time WhatsApp events.
+  rpc StreamEvents(StreamEventsRequest) returns (stream WhatsAppEvent);
+}
+
+// =============================================================================
+// Enums
+// =============================================================================
+
+// ChatType represents the type of a chat.
+enum ChatType {
+  CHAT_TYPE_UNSPECIFIED = 0;
+  CHAT_TYPE_PRIVATE = 1;
+  CHAT_TYPE_GROUP = 2;
+}
+
+// MessageType represents the type of a message.
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_TEXT = 1;
+  MESSAGE_TYPE_IMAGE = 2;
+  MESSAGE_TYPE_VIDEO = 3;
+  MESSAGE_TYPE_AUDIO = 4;
+  MESSAGE_TYPE_DOCUMENT = 5;
+  MESSAGE_TYPE_STICKER = 6;
+  MESSAGE_TYPE_REACTION = 7;
+  MESSAGE_TYPE_LOCATION = 8;
+}
+
+// EventType represents the type of a WhatsApp event.
+enum EventType {
+  EVENT_TYPE_UNSPECIFIED = 0;
+  EVENT_TYPE_MESSAGE_RECEIVED = 1;
+  EVENT_TYPE_MESSAGE_SENT = 2;
+  EVENT_TYPE_MESSAGE_READ = 3;
+  EVENT_TYPE_CHAT_UPDATED = 4;
+  EVENT_TYPE_CONNECTION_STATUS = 5;
+}
+
+// ConnectionStatus represents the connection state.
+enum ConnectionStatus {
+  CONNECTION_STATUS_UNSPECIFIED = 0;
+  CONNECTION_STATUS_DISCONNECTED = 1;
+  CONNECTION_STATUS_CONNECTING = 2;
+  CONNECTION_STATUS_CONNECTED = 3;
+}
+
+// =============================================================================
+// Common Types
+// =============================================================================
+
+// JID represents a WhatsApp JID (Jabber ID).
+message JID {
+  string user = 1;
+  string server = 2;
+}
+
+// Chat represents a WhatsApp chat.
+message Chat {
+  JID jid = 1;
+  string name = 2;
+  ChatType type = 3;
+  google.protobuf.Timestamp last_message_time = 4;
+  string last_message_text = 5;
+  int32 unread_count = 6;
+  bool is_muted = 7;
+  bool is_archived = 8;
+}
+
+// Message represents a WhatsApp message.
+message Message {
+  string id = 1;
+  JID chat_jid = 2;
+  JID sender_jid = 3;
+  MessageType type = 4;
+  string text = 5;
+  google.protobuf.Timestamp timestamp = 6;
+  bool is_from_me = 7;
+  bool is_read = 8;
+  // Media fields
+  string media_url = 9;
+  string media_mime_type = 10;
+  string media_filename = 11;
+  uint64 media_size = 12;
+  bytes media_thumbnail = 13;
+  // Reference fields
+  string quoted_message_id = 14;
+  Reaction reaction = 15;
+}
+
+// Reaction represents a reaction to a message.
+message Reaction {
+  string target_message_id = 1;
+  string emoji = 2;
+}
+
+// =============================================================================
+// Connect
+// =============================================================================
+
+message ConnectRequest {}
+
+message ConnectResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// =============================================================================
+// Disconnect
+// =============================================================================
+
+message DisconnectRequest {}
+
+message DisconnectResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// =============================================================================
+// Logout
+// =============================================================================
+
+message LogoutRequest {}
+
+message LogoutResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// =============================================================================
+// GetConnectionStatus
+// =============================================================================
+
+message GetConnectionStatusRequest {}
+
+message GetConnectionStatusResponse {
+  ConnectionStatus status = 1;
+  bool is_logged_in = 2;
+  JID user_jid = 3;
+  string push_name = 4;
+}
+
+// =============================================================================
+// GetPairingQR
+// =============================================================================
+
+message GetPairingQRRequest {}
+
+message PairingQREvent {
+  oneof payload {
+    string qr_code = 1;
+    bool timeout = 2;
+    PairingSuccess success = 3;
+    string error = 4;
+  }
+}
+
+message PairingSuccess {
+  JID user_jid = 1;
+  string push_name = 2;
+}
+
+// =============================================================================
+// PairWithCode
+// =============================================================================
+
+message PairWithCodeRequest {
+  string phone_number = 1;
+}
+
+message PairWithCodeResponse {
+  string pairing_code = 1;
+  string error_message = 2;
+}
+
+// =============================================================================
+// GetChats
+// =============================================================================
+
+message GetChatsRequest {
+  int32 limit = 1;
+  int32 offset = 2;
+  bool include_archived = 3;
+}
+
+message GetChatsResponse {
+  repeated Chat chats = 1;
+  int32 total_count = 2;
+}
+
+// =============================================================================
+// GetChat
+// =============================================================================
+
+message GetChatRequest {
+  JID jid = 1;
+}
+
+message GetChatResponse {
+  Chat chat = 1;
+}
+
+// =============================================================================
+// GetMessages
+// =============================================================================
+
+message GetMessagesRequest {
+  JID chat_jid = 1;
+  int32 limit = 2;
+  string before_message_id = 3;
+  string after_message_id = 4;
+}
+
+message GetMessagesResponse {
+  repeated Message messages = 1;
+  bool has_more = 2;
+}
+
+// =============================================================================
+// SendMessage
+// =============================================================================
+
+message SendMessageRequest {
+  JID chat_jid = 1;
+  string text = 2;
+  string quoted_message_id = 3;
+  // For media messages
+  bytes media_data = 4;
+  string media_mime_type = 5;
+  string media_filename = 6;
+  MessageType type = 7;
+}
+
+message SendMessageResponse {
+  Message message = 1;
+  string error_message = 2;
+}
+
+// =============================================================================
+// SendReaction
+// =============================================================================
+
+message SendReactionRequest {
+  JID chat_jid = 1;
+  string message_id = 2;
+  string emoji = 3;
+}
+
+message SendReactionResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// =============================================================================
+// MarkAsRead
+// =============================================================================
+
+message MarkAsReadRequest {
+  JID chat_jid = 1;
+  repeated string message_ids = 2;
+}
+
+message MarkAsReadResponse {
+  bool success = 1;
+  string error_message = 2;
+}
+
+// =============================================================================
+// StreamEvents
+// =============================================================================
+
+message StreamEventsRequest {
+  repeated EventType event_types = 1;
+}
+
+message WhatsAppEvent {
+  EventType type = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  oneof payload {
+    MessageEvent message_event = 3;
+    ChatEvent chat_event = 4;
+    ConnectionEvent connection_event = 5;
+  }
+}
+
+message MessageEvent {
+  Message message = 1;
+}
+
+message ChatEvent {
+  Chat chat = 1;
+}
+
+message ConnectionEvent {
+  ConnectionStatus status = 1;
+  string reason = 2;
+}
