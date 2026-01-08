@@ -169,8 +169,9 @@ func (h *CommandHandler) cmdPairQR(ctx context.Context) (interface{}, error) {
 		return nil, fmt.Errorf("failed to get QR channel: %w", err)
 	}
 
-	// Start connection in background
+	// Start connection in background after QR channel is set up
 	go func() {
+		time.Sleep(100 * time.Millisecond)
 		h.waSvc.Connect(context.Background())
 	}()
 
@@ -407,12 +408,14 @@ func (h *CommandHandler) GetQRCodeEvents(ctx context.Context) (<-chan PairingInf
 		return nil, fmt.Errorf("failed to get QR channel: %w", err)
 	}
 
-	// Start connection in background
+	resultChan := make(chan PairingInfo)
+
+	// Start connection in background after setting up the channel
 	go func() {
+		// Small delay to ensure QR channel is ready to receive
+		time.Sleep(100 * time.Millisecond)
 		h.waSvc.Connect(context.Background())
 	}()
-
-	resultChan := make(chan PairingInfo)
 
 	go func() {
 		defer close(resultChan)

@@ -140,6 +140,13 @@ func (s *WhatsAppService) PairWithCode(ctx context.Context, phoneNumber string) 
 		s.client.AddEventHandler(s.handleEvent)
 	}
 
+	// PairPhone requires an active websocket connection
+	if !s.client.IsConnected() {
+		if err := s.client.Connect(); err != nil {
+			return "", fmt.Errorf("failed to connect: %w", err)
+		}
+	}
+
 	return s.client.PairPhone(ctx, phoneNumber, true, whatsmeow.PairClientChrome, "Chrome (Mac)")
 }
 
