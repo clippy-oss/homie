@@ -53,18 +53,8 @@ type ChatModel struct {
 
 func (ChatModel) TableName() string { return "chats" }
 
-type ContactModel struct {
-	JID          string    `gorm:"primaryKey;column:jid"`
-	Name         string    `gorm:"column:name"`
-	PushName     string    `gorm:"column:push_name"`
-	BusinessName string    `gorm:"column:business_name"`
-	PhoneNumber  string    `gorm:"column:phone_number;index"`
-	AvatarURL    string    `gorm:"column:avatar_url"`
-	CreatedAt    time.Time `gorm:"column:created_at"`
-	UpdatedAt    time.Time `gorm:"column:updated_at"`
-}
-
-func (ContactModel) TableName() string { return "contacts" }
+// ContactModel is no longer used - contacts are stored by whatsmeow's built-in
+// ContactStore (whatsmeow_contacts table). Use WhatsAppService.GetContacts() instead.
 
 // Conversion functions
 func MessageModelToDomain(m *MessageModel) *domain.Message {
@@ -204,34 +194,5 @@ func ChatDomainToModel(chat *domain.Chat) *ChatModel {
 	}
 }
 
-func ContactModelToDomain(m *ContactModel) *domain.Contact {
-	if m == nil {
-		return nil
-	}
-
-	jid, _ := domain.ParseJID(m.JID)
-
-	return &domain.Contact{
-		JID:          jid,
-		Name:         m.Name,
-		PushName:     m.PushName,
-		BusinessName: m.BusinessName,
-		PhoneNumber:  m.PhoneNumber,
-		AvatarURL:    m.AvatarURL,
-	}
-}
-
-func ContactDomainToModel(contact *domain.Contact) *ContactModel {
-	if contact == nil {
-		return nil
-	}
-
-	return &ContactModel{
-		JID:          contact.JID.String(),
-		Name:         contact.Name,
-		PushName:     contact.PushName,
-		BusinessName: contact.BusinessName,
-		PhoneNumber:  contact.PhoneNumber,
-		AvatarURL:    contact.AvatarURL,
-	}
-}
+// Contact conversion functions removed - contacts are stored by whatsmeow's
+// built-in ContactStore. Use WhatsAppService.GetContacts() instead.

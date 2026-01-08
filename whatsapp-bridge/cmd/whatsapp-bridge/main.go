@@ -68,18 +68,17 @@ func main() {
 	// Initialize repositories
 	msgRepo := repository.NewMessageRepository(db)
 	chatRepo := repository.NewChatRepository(db)
-	contactRepo := repository.NewContactRepository(db)
 
 	// Initialize event bus
 	eventBus := domain.NewEventBus()
 
 	// Initialize WhatsApp service
+	// Note: Contacts are stored by whatsmeow's built-in ContactStore, not in our repository
 	waSvc := service.NewWhatsAppService(
 		device,
 		eventBus,
 		msgRepo,
 		chatRepo,
-		contactRepo,
 		service.WhatsAppServiceConfig{
 			MediaDownloadPath: cfg.MediaPath,
 		},
@@ -267,10 +266,10 @@ func initDatabase(dbPath string) (*gorm.DB, error) {
 	db.Exec("PRAGMA journal_mode=WAL")
 
 	// Auto-migrate models
+	// Note: Contacts are stored by whatsmeow's built-in ContactStore (whatsmeow_contacts table)
 	err = db.AutoMigrate(
 		&repository.MessageModel{},
 		&repository.ChatModel{},
-		&repository.ContactModel{},
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to migrate database: %w", err)

@@ -28,10 +28,5 @@ type ChatRepository interface {
 	Delete(ctx context.Context, jid domain.JID) error
 }
 
-type ContactRepository interface {
-	Upsert(ctx context.Context, contact *domain.Contact) error
-	GetByJID(ctx context.Context, jid domain.JID) (*domain.Contact, error)
-	GetAll(ctx context.Context) ([]*domain.Contact, error)
-	Search(ctx context.Context, query string) ([]*domain.Contact, error)
-	Delete(ctx context.Context, jid domain.JID) error
-}
+// ContactRepository is no longer needed - contacts are stored by whatsmeow's
+// built-in ContactStore. Use WhatsAppService.GetContacts() instead.

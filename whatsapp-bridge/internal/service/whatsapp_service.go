@@ -24,14 +24,13 @@ type WhatsAppServiceConfig struct {
 }
 
 type WhatsAppService struct {
-	client      *whatsmeow.Client
-	device      *store.Device
-	eventBus    domain.EventBus
-	msgRepo     repository.MessageRepository
-	chatRepo    repository.ChatRepository
-	contactRepo repository.ContactRepository
-	config      WhatsAppServiceConfig
-	logger      waLog.Logger
+	client   *whatsmeow.Client
+	device   *store.Device
+	eventBus domain.EventBus
+	msgRepo  repository.MessageRepository
+	chatRepo repository.ChatRepository
+	config   WhatsAppServiceConfig
+	logger   waLog.Logger
 
 	mu        sync.RWMutex
 	connected bool
@@ -42,18 +41,16 @@ func NewWhatsAppService(
 	eventBus domain.EventBus,
 	msgRepo repository.MessageRepository,
 	chatRepo repository.ChatRepository,
-	contactRepo repository.ContactRepository,
 	config WhatsAppServiceConfig,
 	logger waLog.Logger,
 ) *WhatsAppService {
 	return &WhatsAppService{
-		device:      device,
-		eventBus:    eventBus,
-		msgRepo:     msgRepo,
-		chatRepo:    chatRepo,
-		contactRepo: contactRepo,
-		config:      config,
-		logger:      logger,
+		device:   device,
+		eventBus: eventBus,
+		msgRepo:  msgRepo,
+		chatRepo: chatRepo,
+		config:   config,
+		logger:   logger,
 	}
 }
 
@@ -114,6 +111,56 @@ func (s *WhatsAppService) IsLoggedIn() bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 	return s.device != nil && s.device.ID != nil
+}
+
+// GetContacts returns all contacts from whatsmeow's built-in ContactStore as domain types
+func (s *WhatsAppService) GetContacts(ctx context.Context) ([]*domain.Contact, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.client == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
+	waContacts, err := s.client.Store.Contacts.GetAllContacts(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	contacts := make([]*domain.Contact, 0, len(waContacts))
+	for jid, info := range waContacts {
+		contacts = append(contacts, s.contactInfoToDomain(jid, info))
+	}
+	return contacts, nil
+}
+
+// GetContact returns a specific contact from whatsmeow's built-in ContactStore as domain type
+func (s *WhatsAppService) GetContact(ctx context.Context, jid domain.JID) (*domain.Contact, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if s.client == nil {
+		return nil, fmt.Errorf("client not initialized")
+	}
+
+	waJID := s.toWhatsmeowJID(jid)
+	info, err := s.client.Store.Contacts.GetContact(ctx, waJID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.contactInfoToDomain(waJID, info), nil
+}
+
+// contactInfoToDomain converts whatsmeow ContactInfo to domain Contact
+func (s *WhatsAppService) contactInfoToDomain(jid types.JID, info types.ContactInfo) *domain.Contact {
+	return &domain.Contact{
+		JID:          s.toDomainJID(jid),
+		Name:         info.FullName,
+		PushName:     info.PushName,
+		BusinessName: info.BusinessName,
+		PhoneNumber:  jid.User,
+	}
 }
 
 func (s *WhatsAppService) GetQRChannel(ctx context.Context) (<-chan whatsmeow.QRChannelItem, error) {
@@ -336,17 +383,9 @@ func (s *WhatsAppService) handleReceipt(evt *events.Receipt) {
 }
 
 func (s *WhatsAppService) handlePushName(evt *events.PushName) {
-	ctx := context.Background()
-	jid := s.toDomainJID(evt.JID)
-
-	contact := &domain.Contact{
-		JID:      jid,
-		PushName: evt.NewPushName,
-	}
-
-	if err := s.contactRepo.Upsert(ctx, contact); err != nil {
-		s.logger.Warnf("Failed to update contact push name: %v", err)
-	}
+	// Push names are automatically stored by whatsmeow's ContactStore
+	// We just log them for debugging purposes
+	s.logger.Debugf("Push name update: %s -> %s", evt.JID.String(), evt.NewPushName)
 }
 
 func (s *WhatsAppService) handleHistorySync(evt *events.HistorySync) {
