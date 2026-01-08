@@ -278,7 +278,9 @@ struct NotionHomeView: View {
     @ObservedObject private var entitlementStore = FeatureEntitlementStore.shared
     @ObservedObject private var localLLMStore = LocalLLMModelStore.shared
     @ObservedObject private var notchManager = NotchManager.shared
+    @ObservedObject private var gestureDetector = TouchGestureDetector.shared
     @State private var shortcuts: [ShortcutInfo] = []
+    @State private var touchVisualizationWindowController: TouchVisualizationWindowController?
     
     struct ShortcutInfo: Identifiable {
         let id = UUID()
@@ -288,24 +290,39 @@ struct NotionHomeView: View {
     }
     
     var body: some View {
-        NavigationSplitView {
-            // Sidebar
-            sidebarView
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 300)
-        } detail: {
-            // Main Content Area
-            mainContentView
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-        }
-        .frame(minWidth: 800, minHeight: 600)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: entitlementStore.currentTier) { _ in
-            // If user is viewing premium features but is no longer entitled, redirect to Home
-            if selectedSection == "Personalize" && !entitlementStore.canUsePersonalize {
-                selectedSection = "Home"
+        ZStack {
+            NavigationSplitView {
+                // Sidebar
+                sidebarView
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 300)
+            } detail: {
+                // Main Content Area
+                mainContentView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            if selectedSection == "Integrations" && !entitlementStore.canUseMCPIntegrations {
-                selectedSection = "Home"
+            .frame(minWidth: 800, minHeight: 600)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: entitlementStore.currentTier) { _ in
+                // If user is viewing premium features but is no longer entitled, redirect to Home
+                if selectedSection == "Personalize" && !entitlementStore.canUsePersonalize {
+                    selectedSection = "Home"
+                }
+                if selectedSection == "Integrations" && !entitlementStore.canUseMCPIntegrations {
+                    selectedSection = "Home"
+                }
+            }
+            .onAppear {
+                // Start listening for touch gestures
+                gestureDetector.startListening()
+            }
+            .onDisappear {
+                // Stop listening when view disappears
+                gestureDetector.stopListening()
+            }
+            .onChange(of: gestureDetector.isGestureDetected) { detected in
+                if detected {
+                    SlidingPanelWindowController.shared.showPanel()
+                }
             }
         }
     }
@@ -468,6 +485,35 @@ struct NotionHomeView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    // Touch Visualization card
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Touch Visualization")
+                            .font(.headline)
+                        
+                        Text("Test real-time trackpad touch visualization. This shows touch positions, pressure, and gestures on your trackpad.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Button(action: {
+                            openTouchVisualization()
+                        }) {
+                            HStack {
+                                Image(systemName: "hand.point.up.left.fill")
+                                Text("Open Touch Visualization")
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.7))
+                    .cornerRadius(8)
+                    
                     // How to Use Homie card
                     VStack(alignment: .leading, spacing: 8) {
                         Text("How to Use Homie")
@@ -633,6 +679,13 @@ struct NotionHomeView: View {
         return "Hey \(userName),\n\nDo you want to go for a coffee later this week?\nWould love to share more insights about Clippy with you.\n\nBest,\nMax"
     }
     
+    private func openTouchVisualization() {
+        // Create or reuse the window controller
+        if touchVisualizationWindowController == nil {
+            touchVisualizationWindowController = TouchVisualizationWindowController()
+        }
+        touchVisualizationWindowController?.showWindow()
+    }
     
 }
 

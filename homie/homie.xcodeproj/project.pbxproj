@@ -20,6 +20,7 @@
 		258C190F2F0335E90091B9D6 /* SwiftAI in Frameworks */ = {isa = PBXBuildFile; productRef = 258C190E2F0335E90091B9D6 /* SwiftAI */; };
 		258C19112F0335E90091B9D6 /* SwiftAIMLX in Frameworks */ = {isa = PBXBuildFile; productRef = 258C19102F0335E90091B9D6 /* SwiftAIMLX */; };
 		C6F8A1092ED1258100686CD1 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1B2C42E89D12300A56103 /* Sparkle */; };
+		C6FB5D292F101C2500A400B6 /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = C6FB5D282F101C2500A400B6 /* OpenMultitouchSupport */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -104,6 +105,7 @@
 				25726D0F2F1001B8005AC584 /* DynamicNotchKit in Frameworks */,
 				258C190F2F0335E90091B9D6 /* SwiftAI in Frameworks */,
 				258C18EE2F031AE80091B9D6 /* Functions in Frameworks */,
+				C6FB5D292F101C2500A400B6 /* OpenMultitouchSupport in Frameworks */,
 				258C18F62F031AE80091B9D6 /* Supabase in Frameworks */,
 				258C18F22F031AE80091B9D6 /* Realtime in Frameworks */,
 				258C18EC2F031AE80091B9D6 /* Auth in Frameworks */,
@@ -190,6 +192,7 @@
 				258C190E2F0335E90091B9D6 /* SwiftAI */,
 				258C19102F0335E90091B9D6 /* SwiftAIMLX */,
 				25726D0E2F1001B8005AC584 /* DynamicNotchKit */,
+				C6FB5D282F101C2500A400B6 /* OpenMultitouchSupport */,
 			);
 			productName = homie;
 			productReference = C6EFBFC22E2823D200277948 /* homie.app */;
@@ -278,6 +281,7 @@
 				258C18EA2F031AE80091B9D6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				258C190D2F0335E90091B9D6 /* XCRemoteSwiftPackageReference "SwiftAI" */,
 				25726D0D2F1001B8005AC584 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */,
+				C6FB5D272F101C2500A400B6 /* XCLocalSwiftPackageReference "../OpenMultitouchSupport-main" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C6EFBFC32E2823D200277948 /* Products */;
@@ -646,6 +650,13 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		C6FB5D272F101C2500A400B6 /* XCLocalSwiftPackageReference "../OpenMultitouchSupport-main" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../OpenMultitouchSupport-main";
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
 		25726D0D2F1001B8005AC584 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */ = {
 			isa = XCRemoteSwiftPackageReference;
@@ -731,6 +742,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C6A1B2C32E89D12300A56103 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		C6FB5D282F101C2500A400B6 /* OpenMultitouchSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OpenMultitouchSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
