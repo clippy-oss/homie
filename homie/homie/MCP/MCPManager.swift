@@ -19,11 +19,17 @@ class MCPManager: ObservableObject {
     
     private var cancellables = Set<AnyCancellable>()
     
+    // MARK: - WhatsApp Provider (Shared Instance)
+
+    /// Shared WhatsApp messaging provider for both MCP and direct use
+    private(set) lazy var whatsAppProvider: WhatsAppMessagingProvider = WhatsAppMessagingProvider()
+
     private init() {
         // Register all available servers
         registerServer(LinearMCPServer())
         registerServer(GoogleCalendarMCPServer())
-        
+        registerServer(WhatsAppMCPServer(messagingProvider: whatsAppProvider))
+
         // Update tools when connection status changes
         updateAvailableTools()
     }

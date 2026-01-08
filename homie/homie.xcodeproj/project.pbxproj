@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		25726DE52F103E72005AC584 /* SwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = 25726DE42F103E72005AC584 /* SwiftProtobuf */; };
+		25726DE82F103FD6005AC584 /* GRPCNIOTransportHTTP2 in Frameworks */ = {isa = PBXBuildFile; productRef = 25726DE72F103FD6005AC584 /* GRPCNIOTransportHTTP2 */; };
+		25726E072F10430F005AC584 /* GRPCCore in Frameworks */ = {isa = PBXBuildFile; productRef = 25726E062F10430F005AC584 /* GRPCCore */; };
+		25726E0A2F1043B8005AC584 /* GRPCProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = 25726E092F1043B8005AC584 /* GRPCProtobuf */; };
 		258C17C32F02CF880091B9D6 /* Local.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 258C17C22F02CF880091B9D6 /* Local.xcconfig */; };
 		258C189D2F02D78B0091B9D6 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 258C189C2F02D78B0091B9D6 /* whisper.xcframework */; };
 		258C18A12F02DB100091B9D6 /* whisper.xcframework in Copy XCFramework */ = {isa = PBXBuildFile; fileRef = 258C189C2F02D78B0091B9D6 /* whisper.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -103,10 +107,14 @@
 				258C190F2F0335E90091B9D6 /* SwiftAI in Frameworks */,
 				258C18EE2F031AE80091B9D6 /* Functions in Frameworks */,
 				258C18F62F031AE80091B9D6 /* Supabase in Frameworks */,
+				25726DE82F103FD6005AC584 /* GRPCNIOTransportHTTP2 in Frameworks */,
+				25726E0A2F1043B8005AC584 /* GRPCProtobuf in Frameworks */,
 				258C18F22F031AE80091B9D6 /* Realtime in Frameworks */,
 				258C18EC2F031AE80091B9D6 /* Auth in Frameworks */,
 				258C19112F0335E90091B9D6 /* SwiftAIMLX in Frameworks */,
 				258C18F02F031AE80091B9D6 /* PostgREST in Frameworks */,
+				25726E072F10430F005AC584 /* GRPCCore in Frameworks */,
+				25726DE52F103E72005AC584 /* SwiftProtobuf in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -164,6 +172,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = C6EFBFE72E2823D400277948 /* Build configuration list for PBXNativeTarget "homie" */;
 			buildPhases = (
+				25726DE92F104032005AC584 /* Generate Proto Files */,
 				C6EFBFBE2E2823D200277948 /* Sources */,
 				C6EFBFBF2E2823D200277948 /* Frameworks */,
 				C6EFBFC02E2823D200277948 /* Resources */,
@@ -187,6 +196,10 @@
 				258C18F52F031AE80091B9D6 /* Supabase */,
 				258C190E2F0335E90091B9D6 /* SwiftAI */,
 				258C19102F0335E90091B9D6 /* SwiftAIMLX */,
+				25726DE42F103E72005AC584 /* SwiftProtobuf */,
+				25726DE72F103FD6005AC584 /* GRPCNIOTransportHTTP2 */,
+				25726E062F10430F005AC584 /* GRPCCore */,
+				25726E092F1043B8005AC584 /* GRPCProtobuf */,
 			);
 			productName = homie;
 			productReference = C6EFBFC22E2823D200277948 /* homie.app */;
@@ -274,6 +287,10 @@
 				C6A1B2C32E89D12300A56103 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				258C18EA2F031AE80091B9D6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				258C190D2F0335E90091B9D6 /* XCRemoteSwiftPackageReference "SwiftAI" */,
+				25726DE32F103E72005AC584 /* XCRemoteSwiftPackageReference "swift-protobuf" */,
+				25726DE62F103FD6005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-nio-transport" */,
+				25726E052F10430F005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-2" */,
+				25726E082F1043B8005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-protobuf" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C6EFBFC32E2823D200277948 /* Products */;
@@ -311,6 +328,30 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		25726DE92F104032005AC584 /* Generate Proto Files */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(PROJECT_DIR)/../whatsapp-bridge/api/proto/whatsapp.proto",
+			);
+			name = "Generate Proto Files";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(PROJECT_DIR)/homie/MessagingProviders/WhatsApp/Generated/whatsapp.pb.swift",
+				"$(PROJECT_DIR)/homie/MessagingProviders/WhatsApp/Generated/whatsapp.grpc.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "#!/bin/bash\nset -e\n\nPROTO_DIR=\"${PROJECT_DIR}/../whatsapp-bridge/api/proto\"\nOUTPUT_DIR=\"${PROJECT_DIR}/homie/MessagingProviders/WhatsApp/Generated\"\nPROTOC=\"/opt/homebrew/bin/protoc\"\nSWIFT_PLUGIN=\"/opt/homebrew/bin/protoc-gen-swift\"\nGRPC_PLUGIN=\"/opt/homebrew/opt/protoc-gen-grpc-swift/bin/protoc-gen-grpc-swift-2\"\n\nmkdir -p \"$OUTPUT_DIR\"\n\n# Only regenerate if proto is newer than output\nif [ \"$PROTO_DIR/whatsapp.proto\" -nt \"$OUTPUT_DIR/whatsapp.pb.swift\" ]; then\n    echo \"Regenerating proto files...\"\n    \"$PROTOC\" \\\n        --proto_path=\"$PROTO_DIR\" \\\n        --plugin=protoc-gen-swift=\"$SWIFT_PLUGIN\" \\\n        --swift_out=\"$OUTPUT_DIR\" \\\n        --swift_opt=Visibility=Public \\\n        --plugin=protoc-gen-grpc-swift=\"$GRPC_PLUGIN\" \\\n        --grpc-swift_out=\"$OUTPUT_DIR\" \\\n        --grpc-swift_opt=Visibility=Public,Client=true,Server=false \\\n        \"$PROTO_DIR/whatsapp.proto\"\n    echo \"Proto files regenerated\"\nelse\n    echo \"Proto files up to date\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		C6EFBFBE2E2823D200277948 /* Sources */ = {
@@ -643,6 +684,38 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
+		25726DE32F103E72005AC584 /* XCRemoteSwiftPackageReference "swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-protobuf";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.33.3;
+			};
+		};
+		25726DE62F103FD6005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-nio-transport" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/grpc/grpc-swift-nio-transport";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.4.0;
+			};
+		};
+		25726E052F10430F005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-2" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/grpc/grpc-swift-2";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.2.1;
+			};
+		};
+		25726E082F1043B8005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-protobuf" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/grpc/grpc-swift-protobuf.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.1.2;
+			};
+		};
 		258C18EA2F031AE80091B9D6 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift.git";
@@ -670,6 +743,26 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		25726DE42F103E72005AC584 /* SwiftProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25726DE32F103E72005AC584 /* XCRemoteSwiftPackageReference "swift-protobuf" */;
+			productName = SwiftProtobuf;
+		};
+		25726DE72F103FD6005AC584 /* GRPCNIOTransportHTTP2 */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25726DE62F103FD6005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-nio-transport" */;
+			productName = GRPCNIOTransportHTTP2;
+		};
+		25726E062F10430F005AC584 /* GRPCCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25726E052F10430F005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-2" */;
+			productName = GRPCCore;
+		};
+		25726E092F1043B8005AC584 /* GRPCProtobuf */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25726E082F1043B8005AC584 /* XCRemoteSwiftPackageReference "grpc-swift-protobuf" */;
+			productName = GRPCProtobuf;
+		};
 		258C18EB2F031AE80091B9D6 /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 258C18EA2F031AE80091B9D6 /* XCRemoteSwiftPackageReference "supabase-swift" */;

@@ -124,6 +124,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
             Logger.info("Main window hidden - only Notion Home window visible", module: "App")
         }
         
+        // Start WhatsApp bridge subprocess
+        Task {
+            do {
+                try await MCPManager.shared.whatsAppProvider.start()
+                Logger.info("WhatsApp bridge started successfully", module: "App")
+            } catch {
+                Logger.error("Failed to start WhatsApp bridge: \(error.localizedDescription)", module: "App")
+            }
+        }
+
         Logger.info("Homie app started!", module: "App")
         Logger.info("Press Shift+Control+I to toggle the floating window with VoiceGPT transcription.", module: "App")
         Logger.info("Press Shift+Control+O to toggle dictation recording and transcription.", module: "App")
@@ -216,6 +226,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
 
         // Clean up all shortcuts
         ShortcutManager.shared.unregisterAllShortcuts()
+
+        // Stop WhatsApp bridge subprocess
+        // Note: Using DispatchSemaphore to ensure async work completes before termination
+        let semaphore = DispatchSemaphore(value: 0)
+        Task {
+            await MCPManager.shared.whatsAppProvider.stop()
+            Logger.info("WhatsApp bridge stopped", module: "App")
+            semaphore.signal()
+        }
+        _ = semaphore.wait(timeout: .now() + 5.0)
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

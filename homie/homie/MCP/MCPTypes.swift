@@ -259,8 +259,19 @@ extension MCPServerConfig {
         scopes: ["https://www.googleapis.com/auth/calendar.events"],
         redirectPath: "oauth/google"
     )
-    
+
+    static let whatsapp = MCPServerConfig(
+        id: "whatsapp",
+        name: "WhatsApp",
+        description: "Send and receive WhatsApp messages",
+        iconName: "message.fill",
+        authURL: "",  // Local service - no OAuth
+        tokenURL: "",
+        scopes: [],
+        redirectPath: ""
+    )
+
     /// All available MCP server configurations
-    static let allServers: [MCPServerConfig] = [.linear, .googleCalendar]
+    static let allServers: [MCPServerConfig] = [.linear, .googleCalendar, .whatsapp]
 }
 
