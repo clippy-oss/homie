@@ -124,32 +124,13 @@ jobs:
             --build-number "$HOMIE_BUILD_NUMBER" \
             --clean
 
-      - name: Upload to Cloudflare R2
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          CLOUDFLARE_S3_API: ${{ secrets.CLOUDFLARE_S3_API }}
+      - name: Get DMG file size
+        id: dmg_info
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          DMG_FILE="homie/.builds/homie-v${VERSION}.dmg"
-          DMG_NAME="Homie-v${VERSION}.dmg"
-          BUCKET_NAME="homie"
-
-          # Configure AWS CLI
-          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
-          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
-          aws configure set region auto
-
-          echo "Uploading $DMG_NAME to R2..."
-          aws s3 cp "$DMG_FILE" "s3://$BUCKET_NAME/$DMG_NAME" \
-            --endpoint-url "$CLOUDFLARE_S3_API"
-
-          echo "Upload complete!"
-          echo "Public URL: ${{ secrets.R2_PUBLIC_URL }}/$DMG_NAME"
-
-          # Store DMG size for appcast
+          DMG_FILE="homie/.builds/homie-v${{ steps.version.outputs.version }}.dmg"
           DMG_SIZE=$(stat -f%z "$DMG_FILE")
-          echo "DMG_SIZE=$DMG_SIZE" >> $GITHUB_ENV
+          echo "size=$DMG_SIZE" >> $GITHUB_OUTPUT
+          echo "DMG size: $DMG_SIZE bytes"
 
       - name: Generate and upload appcast.xml
         env:
@@ -159,7 +140,8 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BUILD="${{ github.run_number }}"
-          DMG_URL="${{ secrets.R2_PUBLIC_URL }}/Homie-v${VERSION}.dmg"
+          DMG_SIZE="${{ steps.dmg_info.outputs.size }}"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/homie-v${VERSION}.dmg"
           PUB_DATE=$(date -u +"%a, %d %b %Y %H:%M:%S +0000")
 
           cat > appcast.xml << EOF
@@ -190,11 +172,18 @@ jobs:
           </rss>
           EOF
 
+          # Configure AWS CLI for R2
+          aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+          aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+          aws configure set region auto
+
+          # Upload appcast.xml to R2
           aws s3 cp appcast.xml "s3://homie/appcast.xml" \
             --endpoint-url "$CLOUDFLARE_S3_API" \
             --content-type "text/xml"
 
           echo "Appcast uploaded to: ${{ secrets.R2_PUBLIC_URL }}/appcast.xml"
+          echo "DMG URL in appcast: ${DMG_URL}"
 
       - name: Update Supabase app_versions table
         env:
@@ -202,7 +191,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BUILD="${{ github.run_number }}"
-          DMG_URL="${{ secrets.R2_PUBLIC_URL }}/Homie-v${VERSION}.dmg"
+          DMG_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/homie-v${VERSION}.dmg"
           SUPABASE_URL="${{ secrets.SUPABASE_URL }}"
 
           echo "Inserting version ${VERSION} (build ${BUILD}) into app_versions table..."
@@ -241,10 +230,13 @@ jobs:
           draft: false
           prerelease: ${{ contains(steps.version.outputs.version, 'alpha') || contains(steps.version.outputs.version, 'beta') || contains(steps.version.outputs.version, 'rc') }}
           generate_release_notes: true
+          files: |
+            homie/.builds/homie-v${{ steps.version.outputs.version }}.dmg
+            appcast.xml
           body: |
             ## Download
 
-            - **Download**: [Homie-v${{ steps.version.outputs.version }}.dmg](${{ secrets.R2_PUBLIC_URL }}/Homie-v${{ steps.version.outputs.version }}.dmg)
+            - **Download**: [homie-v${{ steps.version.outputs.version }}.dmg](https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/homie-v${{ steps.version.outputs.version }}.dmg)
 
             ## Installation
 
