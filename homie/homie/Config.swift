@@ -30,5 +30,10 @@ struct Config {
     // and retrieved at runtime via the edge function. No local configuration needed.
 
     // MARK: - Update Configuration
-    static let appcastURL = "https://pub-74e2bbd95fb743b29638f4967a7c5274.r2.dev/appcast.xml"
+    static var appcastURL: String {
+        guard let url = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String else {
+            fatalError("SUFeedURL not found in Info.plist")
+        }
+        return url
+    }
 } 

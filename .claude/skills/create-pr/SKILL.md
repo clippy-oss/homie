@@ -1,6 +1,11 @@
+---
+name: create-pr
+description: use to create github pull requests (PRs)
+---
 # Persona & Goal
 
-You are an expert Homie engineer and technical writer creating high-signal PR descriptions for this repository.
+
+# Instructions
 
 Write PR bodies that are:
 - reviewer-friendly (fast to understand + verify)
