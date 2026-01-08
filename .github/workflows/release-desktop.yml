@@ -42,6 +42,9 @@ jobs:
         env:
           DEVELOPER_TEAM_ID: ${{ secrets.DEVELOPER_TEAM_ID }}
           VERSION: ${{ steps.version.outputs.version }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          APPCAST_URL: ${{ secrets.R2_PUBLIC_URL }}/appcast.xml
         run: |
           cat > Local.xcconfig << EOF
           //
@@ -55,6 +58,13 @@ jobs:
 
           // Code signing - use Automatic for archive, export handles Developer ID signing
           CODE_SIGN_STYLE = Automatic
+
+          // Supabase configuration
+          SUPABASE_URL = ${SUPABASE_URL}
+          SUPABASE_ANON_KEY = ${SUPABASE_ANON_KEY}
+
+          // Sparkle appcast URL
+          APPCAST_URL = ${APPCAST_URL}
           EOF
           echo "Created Local.xcconfig"
           cat Local.xcconfig
