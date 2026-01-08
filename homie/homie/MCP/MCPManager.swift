@@ -23,6 +23,8 @@ class MCPManager: ObservableObject {
         // Register all available servers
         registerServer(LinearMCPServer())
         registerServer(GoogleCalendarMCPServer())
+        registerServer(BrowserMCPServer())
+        registerServer(LocalRemindersMCPServer())
         
         // Update tools when connection status changes
         updateAvailableTools()

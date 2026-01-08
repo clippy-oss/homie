@@ -49,6 +49,8 @@
 	<string>NSApplication</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>We need access for dictation.</string>
+	<key>NSRemindersUsageDescription</key>
+	<string>Homie needs access to your reminders to create, list, and manage reminders on your behalf.</string>
 	<key>SUBSCRIPTION_URL</key>
 	<string>https://example.com/subscription</string>
 	<key>SUFeedURL</key>

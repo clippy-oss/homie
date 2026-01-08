@@ -19,7 +19,7 @@ struct UpgradePromptView: View {
             // Star Icon
             Image(systemName: "star.circle.fill")
                 .font(.system(size: 64))
-                .foregroundColor(.yellow)
+                .foregroundColor(.accentColor)
 
             // Title
             Text("Premium Required")
@@ -42,7 +42,7 @@ struct UpgradePromptView: View {
                         .font(.system(size: 14, weight: .medium))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(Color.yellow)
+                        .background(Color.accentColor)
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }

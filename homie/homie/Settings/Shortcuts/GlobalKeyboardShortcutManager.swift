@@ -131,4 +131,5 @@ extension GlobalKeyboardShortcutManager {
     static let shiftKeyModifier: UInt32 = UInt32(shiftKey)
     static let optionKeyModifier: UInt32 = UInt32(optionKey)
     static let controlKeyModifier: UInt32 = UInt32(controlKey)
+    static let fnKeyModifier: UInt32 = UInt32(1 << 17) // 0x20000 - Function key modifier
 } 

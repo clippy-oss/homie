@@ -81,7 +81,7 @@ class LinearMCPServer: BaseMCPServer {
                         ),
                         "priority": MCPToolProperty(
                             type: "integer",
-                            description: "Priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low",
+                            description: "Priority level: 0=no priority, 1=urgent (highest), 2=high, 3=medium, 4=low (lowest). When user says 'high priority' use 2, 'urgent' use 1, 'medium' use 3, 'low' use 4.",
                             enumValues: nil,
                             items: nil
                         )
@@ -122,7 +122,7 @@ class LinearMCPServer: BaseMCPServer {
                         ),
                         "priority": MCPToolProperty(
                             type: "integer",
-                            description: "New priority: 0=none, 1=urgent, 2=high, 3=medium, 4=low",
+                            description: "Priority level: 0=no priority, 1=urgent (highest), 2=high, 3=medium, 4=low (lowest). When user says 'high priority' use 2, 'urgent' use 1, 'medium' use 3, 'low' use 4.",
                             enumValues: nil,
                             items: nil
                         )

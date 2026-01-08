@@ -4,6 +4,7 @@ import AVFoundation
 import Combine
 import FoundationModels
 import SwiftUI
+import ApplicationServices
 
 // MARK: - Liquid Glass Background Wrapper
 /// All 20 available liquid‑glass variants.
@@ -904,6 +905,10 @@ class FloatingViewController: NSViewController {
                     self?.useRawDictation = false
                 }
             }
+            // Hide the voice notch since no processing will happen
+            Task { @MainActor in
+                NotchManager.shared.hideVoiceNotch()
+            }
             return
         }
 
@@ -923,6 +928,10 @@ class FloatingViewController: NSViewController {
     private func handleDictationError(_ error: Error) {
         Logger.error("Whisper error: \(error.localizedDescription)", module: "Speech")
         updatePanelForRecordingState(active: false)
+        // Hide the voice notch on error
+        Task { @MainActor in
+            NotchManager.shared.hideVoiceNotch()
+        }
     }
     
     // MARK: - Noise Annotation Filtering
@@ -1037,13 +1046,15 @@ class FloatingViewController: NSViewController {
             Logger.debug("Raw transcription copied to clipboard", module: "Speech")
             
             // Automatically paste the transcription at current cursor position
-            self?.pasteResponseAtCursor()
+            self?.pasteResponseAtCursor(expectedText: transcribedText)
             
             // Reset panel state
             self?.updatePanelForRecordingState(active: false)
             
             // Reset the flag for next use
             self?.useRawDictation = false
+            
+            // Note: pasteResponseAtCursor will hide the voice notch (Processing state)
         }
     }
     
@@ -1105,7 +1116,41 @@ class FloatingViewController: NSViewController {
                 if hasTools {
                     // Non-streaming path: MCP tool calling requires complete response
                     Logger.info("🔧 Using non-streaming path (MCP tools connected)", module: "LLM")
-                    let response = try await LLMRouter.shared.processQuery(transcribedText, context: contextText)
+                    
+                    // Create tool confirmation handler
+                    let toolConfirmationHandler: OpenAIServiceImpl.ToolCallConfirmationHandler = { [weak self] toolCall in
+                        // Auto-approve read-only tools (get, list, search operations) and safe operations (browser)
+                        let readOnlyToolPrefixes = ["linear_get", "linear_list", "calendar_list", "calendar_get"]
+                        let safeToolNames = ["open_browser"]
+                        let isReadOnly = readOnlyToolPrefixes.contains { toolCall.function.name.hasPrefix($0) }
+                        let isSafe = safeToolNames.contains(toolCall.function.name)
+                        
+                        if isReadOnly || isSafe {
+                            Logger.info("🔓 Auto-approving read-only/safe tool: \(toolCall.function.name)", module: "LLM")
+                            return toolCall
+                        }
+                        
+                        // Show tool confirmation in notch and wait for user decision for write operations
+                        return await withCheckedContinuation { continuation in
+                            Task { @MainActor in
+                                NotchManager.shared.showToolConfirmation(
+                                    toolCall: toolCall,
+                                    onApproved: { confirmedToolCall in
+                                        continuation.resume(returning: confirmedToolCall)
+                                    },
+                                    onCancelled: {
+                                        continuation.resume(returning: nil)
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    
+                    let response = try await LLMRouter.shared.processQuery(
+                        transcribedText,
+                        context: contextText,
+                        toolConfirmationHandler: toolConfirmationHandler
+                    )
                     await handleCompleteResponse(response, transcribedText: transcribedText)
                 } else {
                     // Streaming path: real-time text display
@@ -1130,6 +1175,10 @@ class FloatingViewController: NSViewController {
                     self?.isProcessingWithAI = false
                     self?.shouldCloseAfterAIResponse = false
                     self?.hideThinkingState()
+                    // Hide the voice notch on error
+                    Task { @MainActor in
+                        NotchManager.shared.hideVoiceNotch()
+                    }
                 }
             }
         }
@@ -1159,24 +1208,21 @@ class FloatingViewController: NSViewController {
             // Store reference to window controller before closing
             let windowController = view.window?.windowController as? FloatingWindowController
 
-            // Delay closing the window to show the response bubble
-            let responseDisplayDelay: TimeInterval = 3.0
-            Logger.debug("Showing response bubble for \(responseDisplayDelay)s before closing", module: "FloatingVC")
-
-            DispatchQueue.main.asyncAfter(deadline: .now() + responseDisplayDelay) { [weak self] in
+            // Close the window immediately and paste
+            DispatchQueue.main.async { [weak self] in
                 // Restore window size before closing
                 self?.restoreWindowFromResponseBubble()
 
                 // Small delay to let window animate back, then close
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { [weak self] in
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
                     // Close the window - this will restore focus via hideWindow()
                     windowController?.hideWindow()
 
-                    Logger.debug("Closed popup after response display, waiting for focus to restore, then pasting", module: "FloatingVC")
+                    Logger.debug("Closed popup, waiting for focus to restore, then pasting", module: "FloatingVC")
 
-                    // Wait a bit for focus to restore
+                    // Wait a bit for focus to restore, then paste immediately
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
-                        self?.pasteResponseAtCursor()
+                        self?.pasteResponseAtCursor(expectedText: response)
                     }
                 }
             }
@@ -1208,7 +1254,23 @@ class FloatingViewController: NSViewController {
         }
     }
 
-    private func pasteResponseAtCursor() {
+    private func pasteResponseAtCursor(expectedText: String? = nil) {
+        // Get the text we expect to paste from clipboard
+        let pasteboard = NSPasteboard.general
+        let textToPaste = expectedText ?? pasteboard.string(forType: .string)
+        guard let expectedText = textToPaste, !expectedText.isEmpty else {
+            Logger.warning("⚠️ PASTE FAILED: No text in clipboard to paste", module: "FloatingVC")
+            Task { @MainActor in
+                NotchManager.shared.hideVoiceNotch()
+                // Show failed paste notch even if we don't have text (show empty or error message)
+                NotchManager.shared.showFailedPasteNotch(text: "No text available to paste")
+            }
+            return
+        }
+        
+        // Get the focused element and its text before paste
+        let (focusedElement, textBefore) = getFocusedElementAndText()
+        
         // Simulate Cmd+V to paste the response at the current cursor position
         let source = CGEventSource(stateID: .combinedSessionState)
         
@@ -1226,7 +1288,112 @@ class FloatingViewController: NSViewController {
         // Post the key up event
         cmdVEventUp?.post(tap: .cghidEventTap)
 
-        Logger.debug("Automatically pasted response at cursor position", module: "FloatingVC")
+        Logger.debug("Attempted to paste response at cursor position", module: "FloatingVC")
+        
+        // Verify paste success after a short delay
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in
+            self?.verifyPasteSuccess(
+                focusedElement: focusedElement,
+                textBefore: textBefore,
+                expectedText: expectedText
+            )
+        }
+    }
+    
+    /// Gets the currently focused UI element and its text content
+    private func getFocusedElementAndText() -> (AXUIElement?, String?) {
+        let systemWideElement = AXUIElementCreateSystemWide()
+        var focusedElement: AnyObject?
+        let result = AXUIElementCopyAttributeValue(
+            systemWideElement,
+            kAXFocusedUIElementAttribute as CFString,
+            &focusedElement
+        )
+        
+        guard result == .success, let element = focusedElement as! AXUIElement? else {
+            return (nil, nil)
+        }
+        
+        // Try to get text value from the element
+        var textValue: CFTypeRef?
+        let textResult = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &textValue)
+        
+        if textResult == .success, let text = textValue as? String {
+            return (element, text)
+        }
+        
+        // Fallback: try selected text range or document content
+        var selectedText: CFTypeRef?
+        let selectedResult = AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedText)
+        
+        if selectedResult == .success, let text = selectedText as? String {
+            return (element, text)
+        }
+        
+        return (element, nil)
+    }
+    
+    /// Verifies that the paste operation was successful by comparing text before and after
+    private func verifyPasteSuccess(focusedElement: AXUIElement?, textBefore: String?, expectedText: String) {
+        guard let element = focusedElement else {
+            Logger.warning("⚠️ PASTE FAILED: Could not verify paste - no focused element found", module: "FloatingVC")
+            Task { @MainActor in
+                NotchManager.shared.hideVoiceNotch()
+                NotchManager.shared.showFailedPasteNotch(text: expectedText)
+            }
+            return
+        }
+        
+        // Get text after paste
+        var textValue: CFTypeRef?
+        let textResult = AXUIElementCopyAttributeValue(element, kAXValueAttribute as CFString, &textValue)
+        
+        var textAfter: String?
+        if textResult == .success, let text = textValue as? String {
+            textAfter = text
+        } else {
+            // Fallback: try selected text
+            var selectedText: CFTypeRef?
+            let selectedResult = AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selectedText)
+            if selectedResult == .success, let text = selectedText as? String {
+                textAfter = text
+            }
+        }
+        
+        // Verify paste success
+        let pasteSucceeded: Bool
+        
+        if let before = textBefore, let after = textAfter {
+            // Check if the expected text was inserted
+            // The new text should contain the expected text, or the length should have increased
+            let lengthIncrease = after.count - before.count
+            let containsExpected = after.contains(expectedText) || 
+                                  after.hasSuffix(expectedText) ||
+                                  (lengthIncrease >= expectedText.count * 3 / 4) // Allow for some formatting differences
+            
+            pasteSucceeded = containsExpected || lengthIncrease > 0
+        } else if let after = textAfter {
+            // If we couldn't get text before, check if text after contains expected content
+            pasteSucceeded = after.contains(expectedText) || after.count >= expectedText.count
+        } else {
+            // Couldn't verify - assume it might have worked but log warning
+            pasteSucceeded = false
+        }
+        
+        if pasteSucceeded {
+            Logger.debug("✅ Paste verified successfully", module: "FloatingVC")
+            // Hide the voice notch now that processing is complete
+            Task { @MainActor in
+                NotchManager.shared.hideVoiceNotch()
+            }
+        } else {
+            Logger.warning("⚠️ PASTE FAILED: Text was not successfully pasted. Expected text length: \(expectedText.count) chars. Showing failed paste notch.", module: "FloatingVC")
+            // Hide voice notch and show failed paste notch
+            Task { @MainActor in
+                NotchManager.shared.hideVoiceNotch()
+                NotchManager.shared.showFailedPasteNotch(text: expectedText)
+            }
+        }
     }
 
     // MARK: - Transcription Filtering
@@ -1243,7 +1410,7 @@ class FloatingViewController: NSViewController {
         DispatchQueue.main.async { [weak self] in
             if active {
                 // Add visual feedback for processing (e.g., slight yellow tint)
-                self?.visualEffectView.layer?.borderColor = NSColor.systemYellow.withAlphaComponent(0.3).cgColor
+                self?.visualEffectView.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.3).cgColor
                 self?.visualEffectView.layer?.borderWidth = 2.0
                 // Show waveform animation for processing state (not text entry)
                 if !(self?.isTextEntryMode ?? false) {

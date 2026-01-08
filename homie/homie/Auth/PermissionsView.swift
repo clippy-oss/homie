@@ -26,7 +26,7 @@ struct PermissionsView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "checkmark.shield.fill")
                         .font(.system(size: 48))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(.accentColor)
                     
                     Text("Enable core features")
                         .font(.system(size: 32, weight: .semibold))
@@ -43,9 +43,9 @@ struct PermissionsView: View {
                         // Icon
                         Image(systemName: "mic.fill")
                             .font(.system(size: 24))
-                            .foregroundColor(.yellow)
+                            .foregroundColor(.accentColor)
                             .frame(width: 40, height: 40)
-                            .background(Color.yellow.opacity(0.1))
+                            .background(Color.accentColor.opacity(0.1))
                             .cornerRadius(8)
                         
                         // Text
@@ -71,7 +71,7 @@ struct PermissionsView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 8)
-                                    .background(Color.yellow)
+                                    .background(Color.accentColor)
                                     .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
@@ -93,9 +93,9 @@ struct PermissionsView: View {
                         // Icon
                         Image(systemName: "hand.tap.fill")
                             .font(.system(size: 24))
-                            .foregroundColor(.yellow)
+                            .foregroundColor(.accentColor)
                             .frame(width: 40, height: 40)
-                            .background(Color.yellow.opacity(0.1))
+                            .background(Color.accentColor.opacity(0.1))
                             .cornerRadius(8)
                         
                         // Text
@@ -121,7 +121,7 @@ struct PermissionsView: View {
                                     .foregroundColor(.white)
                                     .padding(.horizontal, 24)
                                     .padding(.vertical, 8)
-                                    .background(Color.yellow)
+                                    .background(Color.accentColor)
                                     .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
@@ -151,7 +151,7 @@ struct PermissionsView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .padding(.vertical, 12)
-                    .background(isFromSettings || allPermissionsGranted ? Color.yellow : Color.gray.opacity(0.3))
+                    .background(isFromSettings || allPermissionsGranted ? Color.accentColor : Color.gray.opacity(0.3))
                     .foregroundColor(.white)
                     .cornerRadius(8)
                 }

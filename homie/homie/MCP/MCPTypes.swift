@@ -260,7 +260,29 @@ extension MCPServerConfig {
         redirectPath: "oauth/google"
     )
     
+    static let browser = MCPServerConfig(
+        id: "browser",
+        name: "Browser",
+        description: "Open webpages in your default browser",
+        iconName: "safari",
+        authURL: "", // No OAuth needed
+        tokenURL: "", // No OAuth needed
+        scopes: [],
+        redirectPath: ""
+    )
+    
+    static let localReminders = MCPServerConfig(
+        id: "local_reminders",
+        name: "Reminders",
+        description: "Create and manage local macOS reminders",
+        iconName: "checkmark.circle.fill",
+        authURL: "", // No OAuth needed (uses EventKit permissions)
+        tokenURL: "", // No OAuth needed
+        scopes: [],
+        redirectPath: ""
+    )
+    
     /// All available MCP server configurations
-    static let allServers: [MCPServerConfig] = [.linear, .googleCalendar]
+    static let allServers: [MCPServerConfig] = [.linear, .googleCalendar, .browser, .localReminders]
 }
 

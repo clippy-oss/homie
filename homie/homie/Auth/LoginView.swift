@@ -29,7 +29,7 @@ struct LoginView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "paperclip")
                         .font(.system(size: 48))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(.accentColor)
                     
                     Text("Welcome back")
                         .font(.system(size: 32, weight: .semibold))
@@ -103,7 +103,7 @@ struct LoginView: View {
                             .frame(maxWidth: .infinity)
                     }
                     .padding(.vertical, 12)
-                    .background(canSignIn ? Color.yellow : Color.gray.opacity(0.3))
+                    .background(canSignIn ? Color.accentColor : Color.gray.opacity(0.3))
                     .foregroundColor(.white)
                     .cornerRadius(8)
                 }
@@ -121,7 +121,7 @@ struct LoginView: View {
                     }) {
                         Text("Sign up")
                             .font(.system(size: 14, weight: .medium))
-                            .foregroundColor(.yellow)
+                            .foregroundColor(.accentColor)
                     }
                     .buttonStyle(.plain)
                 }

@@ -14,8 +14,8 @@ class DictationShortcut: ShortcutHandler {
         
         // Load custom key binding from UserDefaults or use default
         let userDefaults = UserDefaults.standard
-        let defaultKey = "o"
-        let defaultModifiers = GlobalKeyboardShortcutManager.shiftKeyModifier | GlobalKeyboardShortcutManager.controlKeyModifier
+        let defaultKey = "x"
+        let defaultModifiers = GlobalKeyboardShortcutManager.fnKeyModifier
         
         if let savedKey = userDefaults.string(forKey: "shortcut_dictation_key"),
            userDefaults.object(forKey: "shortcut_dictation_modifiers") != nil {

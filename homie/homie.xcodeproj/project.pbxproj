@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		25726D0F2F1001B8005AC584 /* DynamicNotchKit in Frameworks */ = {isa = PBXBuildFile; productRef = 25726D0E2F1001B8005AC584 /* DynamicNotchKit */; };
 		258C17C32F02CF880091B9D6 /* Local.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 258C17C22F02CF880091B9D6 /* Local.xcconfig */; };
 		258C189D2F02D78B0091B9D6 /* whisper.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 258C189C2F02D78B0091B9D6 /* whisper.xcframework */; };
 		258C18A12F02DB100091B9D6 /* whisper.xcframework in Copy XCFramework */ = {isa = PBXBuildFile; fileRef = 258C189C2F02D78B0091B9D6 /* whisper.xcframework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
@@ -19,6 +20,7 @@
 		258C190F2F0335E90091B9D6 /* SwiftAI in Frameworks */ = {isa = PBXBuildFile; productRef = 258C190E2F0335E90091B9D6 /* SwiftAI */; };
 		258C19112F0335E90091B9D6 /* SwiftAIMLX in Frameworks */ = {isa = PBXBuildFile; productRef = 258C19102F0335E90091B9D6 /* SwiftAIMLX */; };
 		C6F8A1092ED1258100686CD1 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = C6A1B2C42E89D12300A56103 /* Sparkle */; };
+		C6FB5D292F101C2500A400B6 /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = C6FB5D282F101C2500A400B6 /* OpenMultitouchSupport */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -100,8 +102,10 @@
 				258C189D2F02D78B0091B9D6 /* whisper.xcframework in Frameworks */,
 				C6F8A1092ED1258100686CD1 /* Sparkle in Frameworks */,
 				258C18F42F031AE80091B9D6 /* Storage in Frameworks */,
+				25726D0F2F1001B8005AC584 /* DynamicNotchKit in Frameworks */,
 				258C190F2F0335E90091B9D6 /* SwiftAI in Frameworks */,
 				258C18EE2F031AE80091B9D6 /* Functions in Frameworks */,
+				C6FB5D292F101C2500A400B6 /* OpenMultitouchSupport in Frameworks */,
 				258C18F62F031AE80091B9D6 /* Supabase in Frameworks */,
 				258C18F22F031AE80091B9D6 /* Realtime in Frameworks */,
 				258C18EC2F031AE80091B9D6 /* Auth in Frameworks */,
@@ -187,6 +191,8 @@
 				258C18F52F031AE80091B9D6 /* Supabase */,
 				258C190E2F0335E90091B9D6 /* SwiftAI */,
 				258C19102F0335E90091B9D6 /* SwiftAIMLX */,
+				25726D0E2F1001B8005AC584 /* DynamicNotchKit */,
+				C6FB5D282F101C2500A400B6 /* OpenMultitouchSupport */,
 			);
 			productName = homie;
 			productReference = C6EFBFC22E2823D200277948 /* homie.app */;
@@ -274,6 +280,8 @@
 				C6A1B2C32E89D12300A56103 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				258C18EA2F031AE80091B9D6 /* XCRemoteSwiftPackageReference "supabase-swift" */,
 				258C190D2F0335E90091B9D6 /* XCRemoteSwiftPackageReference "SwiftAI" */,
+				25726D0D2F1001B8005AC584 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */,
+				C6FB5D272F101C2500A400B6 /* XCLocalSwiftPackageReference "../OpenMultitouchSupport-main" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = C6EFBFC32E2823D200277948 /* Products */;
@@ -642,7 +650,22 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		C6FB5D272F101C2500A400B6 /* XCLocalSwiftPackageReference "../OpenMultitouchSupport-main" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = "../OpenMultitouchSupport-main";
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCRemoteSwiftPackageReference section */
+		25726D0D2F1001B8005AC584 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/MrKai77/DynamicNotchKit";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
 		258C18EA2F031AE80091B9D6 /* XCRemoteSwiftPackageReference "supabase-swift" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/supabase/supabase-swift.git";
@@ -670,6 +693,11 @@
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		25726D0E2F1001B8005AC584 /* DynamicNotchKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 25726D0D2F1001B8005AC584 /* XCRemoteSwiftPackageReference "DynamicNotchKit" */;
+			productName = DynamicNotchKit;
+		};
 		258C18EB2F031AE80091B9D6 /* Auth */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 258C18EA2F031AE80091B9D6 /* XCRemoteSwiftPackageReference "supabase-swift" */;
@@ -714,6 +742,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = C6A1B2C32E89D12300A56103 /* XCRemoteSwiftPackageReference "Sparkle" */;
 			productName = Sparkle;
+		};
+		C6FB5D282F101C2500A400B6 /* OpenMultitouchSupport */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = OpenMultitouchSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -30,7 +30,7 @@ struct SignupView: View {
                 VStack(spacing: 12) {
                     Image(systemName: "paperclip")
                         .font(.system(size: 48))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(.accentColor)
                     
                     Text("Get started with Homie")
                         .font(.system(size: 32, weight: .semibold))
@@ -67,7 +67,7 @@ struct SignupView: View {
                         Text("Back")
                             .font(.system(size: 14))
                     }
-                    .foregroundColor(.yellow)
+                    .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.plain)
                 .padding(.vertical, 20)
@@ -122,7 +122,7 @@ struct SignupView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .padding(.vertical, 12)
-                .background(canContinueEmail ? Color.yellow : Color.gray.opacity(0.3))
+                .background(canContinueEmail ? Color.accentColor : Color.gray.opacity(0.3))
                 .foregroundColor(.white)
                 .cornerRadius(8)
             }
@@ -140,7 +140,7 @@ struct SignupView: View {
                 }) {
                     Text("Log in")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundColor(.yellow)
+                        .foregroundColor(.accentColor)
                 }
                 .buttonStyle(.plain)
             }
@@ -237,7 +237,7 @@ struct SignupView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .padding(.vertical, 12)
-                .background(canCreateAccount ? Color.yellow : Color.gray.opacity(0.3))
+                .background(canCreateAccount ? Color.accentColor : Color.gray.opacity(0.3))
                 .foregroundColor(.white)
                 .cornerRadius(8)
             }

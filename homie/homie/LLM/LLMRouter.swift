@@ -87,7 +87,11 @@ class LLMRouter {
     }
     
     /// Process a query using FeatureGateway which handles auth/tier routing
-    func processQuery(_ query: String, context: String?) async throws -> String {
+    func processQuery(
+        _ query: String,
+        context: String?,
+        toolConfirmationHandler: OpenAIServiceImpl.ToolCallConfirmationHandler? = nil
+    ) async throws -> String {
         Logger.info("🎯 LLMRouter: Processing query via FeatureGateway", module: "LLM")
 
         // Build messages array
@@ -121,7 +125,8 @@ class LLMRouter {
                     messages: messages,
                     context: context,
                     tools: tools,
-                    userInstructions: cachedSystemInstructions
+                    userInstructions: cachedSystemInstructions,
+                    toolConfirmationHandler: toolConfirmationHandler
                 )
             }
         }

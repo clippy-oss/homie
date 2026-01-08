@@ -144,17 +144,23 @@ class OpenAIServiceImpl: LLMServiceProtocol {
     
     // MARK: - Chat with MCP Tools
     
+    /// Callback for tool call confirmation
+    /// Returns the (potentially modified) tool call to execute, or nil to cancel
+    typealias ToolCallConfirmationHandler = (MCPToolCall) async -> MCPToolCall?
+    
     /// Chat with MCP tool support
     /// NOTE: Auth/tier checks are handled by FeatureGateway - this is a dumb executor
     /// - Parameters:
     ///   - messages: The conversation messages
     ///   - tools: Optional array of tools in OpenAI format
     ///   - userInstructions: System instructions
+    ///   - toolConfirmationHandler: Optional handler to confirm/modify tool calls before execution
     /// - Returns: The final response content
     func generateResponseWithTools(
         messages: [[String: String]],
         tools: [[String: Any]]?,
-        userInstructions: String? = nil
+        userInstructions: String? = nil,
+        toolConfirmationHandler: ToolCallConfirmationHandler? = nil
     ) async throws -> String {
         // Get access token from Supabase session (caller already verified auth)
         guard let session = try? await supabase.auth.session else {
@@ -240,12 +246,37 @@ class OpenAIServiceImpl: LLMServiceProtocol {
                 }
                 conversationMessages.append(assistantMessage)
                 
-                // Execute tool calls via MCPManager
-                let results = await MCPManager.shared.execute(toolCalls: toolCalls)
+                // If confirmation handler is provided, get user approval for each tool call
+                var confirmedToolCalls: [MCPToolCall] = []
+                if let confirmationHandler = toolConfirmationHandler {
+                    for toolCall in toolCalls {
+                        if let confirmedCall = await confirmationHandler(toolCall) {
+                            confirmedToolCalls.append(confirmedCall)
+                        } else {
+                            // User cancelled this tool call
+                            Logger.info("🚫 Tool call cancelled by user: \(toolCall.function.name)", module: "LLM")
+                            // Add a cancelled result
+                            let cancelledResult = MCPToolResult(
+                                toolCallID: toolCall.id,
+                                result: "Tool call was cancelled by the user.",
+                                isError: false
+                            )
+                            conversationMessages.append(cancelledResult.toOpenAIMessage())
+                        }
+                    }
+                } else {
+                    // No confirmation needed, execute all
+                    confirmedToolCalls = toolCalls
+                }
                 
-                // Add tool results to conversation
-                for result in results {
-                    conversationMessages.append(result.toOpenAIMessage())
+                // Execute confirmed tool calls via MCPManager
+                if !confirmedToolCalls.isEmpty {
+                    let results = await MCPManager.shared.execute(toolCalls: confirmedToolCalls)
+                    
+                    // Add tool results to conversation
+                    for result in results {
+                        conversationMessages.append(result.toOpenAIMessage())
+                    }
                 }
                 
                 // Continue loop to get next response

@@ -150,7 +150,7 @@ class PlaceholderTextView: NSTextView {
     }
 }
 
-// Custom TextEditor with yellow cursor
+// Custom TextEditor
 struct YellowCursorTextEditor: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String = ""
@@ -168,17 +168,6 @@ struct YellowCursorTextEditor: NSViewRepresentable {
         scrollView.backgroundColor = .clear
         scrollView.drawsBackground = false
         scrollView.documentView = textView
-        
-        // Set yellow insertion point (cursor) color
-        textView.insertionPointColor = .systemYellow
-        
-        // Set yellow selection color (only set once during initialization to avoid crashes)
-        DispatchQueue.main.async {
-            textView.selectedTextAttributes = [
-                .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.3),
-                .foregroundColor: NSColor.labelColor
-            ]
-        }
         
         // Configure text view
         textView.isEditable = true
@@ -213,12 +202,6 @@ struct YellowCursorTextEditor: NSViewRepresentable {
         if textView.string != text {
             textView.string = text
         }
-        
-        // Ensure cursor color is yellow
-        textView.insertionPointColor = .systemYellow
-        
-        // Don't update selection attributes in updateNSView to avoid crashes during text selection
-        // Selection attributes are set once during initialization
     }
     
     func makeCoordinator() -> Coordinator {
@@ -240,33 +223,9 @@ struct YellowCursorTextEditor: NSViewRepresentable {
     }
 }
 
-// Custom NSTextField subclass that always has yellow cursor
+// Custom NSTextField subclass
 class YellowCursorTextField: NSTextField {
-    override func textDidBeginEditing(_ notification: Notification) {
-        super.textDidBeginEditing(notification)
-        if let fieldEditor = self.currentEditor() as? NSTextView {
-            fieldEditor.insertionPointColor = .systemYellow
-            fieldEditor.selectedTextAttributes = [
-                .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.3),
-                .foregroundColor: NSColor.labelColor
-            ]
-        }
-    }
-    
-    override func becomeFirstResponder() -> Bool {
-        let result = super.becomeFirstResponder()
-        // Set yellow cursor when field becomes first responder
-        DispatchQueue.main.async { [weak self] in
-            if let fieldEditor = self?.currentEditor() as? NSTextView {
-                fieldEditor.insertionPointColor = .systemYellow
-                fieldEditor.selectedTextAttributes = [
-                    .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.3),
-                    .foregroundColor: NSColor.labelColor
-                ]
-            }
-        }
-        return result
-    }
+    // No custom cursor color - use system default
 }
 
 // SwiftUI wrapper for TextField with yellow cursor
@@ -318,7 +277,17 @@ struct NotionHomeView: View {
     @ObservedObject private var authStore = AuthSessionStore.shared
     @ObservedObject private var entitlementStore = FeatureEntitlementStore.shared
     @ObservedObject private var localLLMStore = LocalLLMModelStore.shared
+    @ObservedObject private var notchManager = NotchManager.shared
+    @ObservedObject private var gestureDetector = TouchGestureDetector.shared
     @State private var shortcuts: [ShortcutInfo] = []
+    @State private var touchVisualizationWindowController: TouchVisualizationWindowController?
+    @State private var notchState: NotchState = .closed
+    
+    enum NotchState {
+        case closed
+        case listening
+        case thinking
+    }
     
     struct ShortcutInfo: Identifiable {
         let id = UUID()
@@ -328,25 +297,98 @@ struct NotionHomeView: View {
     }
     
     var body: some View {
-        NavigationSplitView {
-            // Sidebar
-            sidebarView
-                .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 300)
-        } detail: {
-            // Main Content Area
-            mainContentView
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ZStack {
+            NavigationSplitView {
+                // Sidebar
+                sidebarView
+                    .navigationSplitViewColumnWidth(min: 200, ideal: 240, max: 300)
+            } detail: {
+                // Main Content Area
+                mainContentView
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .frame(minWidth: 800, minHeight: 600)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .onChange(of: entitlementStore.currentTier) { _ in
+                // If user is viewing premium features but is no longer entitled, redirect to Home
+                if selectedSection == "Personalize" && !entitlementStore.canUsePersonalize {
+                    selectedSection = "Home"
+                }
+                if selectedSection == "Integrations" && !entitlementStore.canUseMCPIntegrations {
+                    selectedSection = "Home"
+                }
+            }
+            .onAppear {
+                // Start listening for touch gestures
+                gestureDetector.startListening()
+            }
+            .onDisappear {
+                // Stop listening when view disappears
+                gestureDetector.stopListening()
+            }
+            .onChange(of: gestureDetector.isGestureDetected) { detected in
+                if detected {
+                    SlidingPanelWindowController.shared.showPanel()
+                }
+            }
+            .onChange(of: notchManager.isVoiceNotchVisible) { isVisible in
+                // Sync local state with actual notch visibility
+                if !isVisible && notchState != .closed {
+                    notchState = .closed
+                }
+            }
+            .onChange(of: notchManager.voiceState) { voiceState in
+                // Sync local state with actual voice state
+                if let state = voiceState {
+                    switch state {
+                    case .listening:
+                        if notchState != .listening {
+                            notchState = .listening
+                        }
+                    case .thinking:
+                        if notchState != .thinking {
+                            notchState = .thinking
+                        }
+                    case .processing, .toolConfirmation:
+                        // Keep current state for processing/toolConfirmation
+                        break
+                    }
+                } else if notchManager.isVoiceNotchVisible == false {
+                    notchState = .closed
+                }
+            }
         }
-        .frame(minWidth: 800, minHeight: 600)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .onChange(of: entitlementStore.currentTier) { _ in
-            // If user is viewing premium features but is no longer entitled, redirect to Home
-            if selectedSection == "Personalize" && !entitlementStore.canUsePersonalize {
-                selectedSection = "Home"
-            }
-            if selectedSection == "Integrations" && !entitlementStore.canUseMCPIntegrations {
-                selectedSection = "Home"
-            }
+    }
+    
+    // MARK: - Notch State Management
+    
+    private var notchStateIcon: String {
+        switch notchState {
+        case .closed: return "circle"
+        case .listening: return "mic.fill"
+        case .thinking: return "brain.head.profile"
+        }
+    }
+    
+    private var notchStateColor: Color {
+        switch notchState {
+        case .closed: return .gray
+        case .listening: return .blue
+        case .thinking: return .orange
+        }
+    }
+    
+    private func cycleNotchState() {
+        switch notchState {
+        case .closed:
+            notchState = .listening
+            notchManager.showListening()
+        case .listening:
+            notchState = .thinking
+            notchManager.showThinking()
+        case .thinking:
+            notchState = .closed
+            notchManager.hideVoiceNotch()
         }
     }
     
@@ -358,7 +400,7 @@ struct NotionHomeView: View {
             HStack {
                 Image(systemName: "paperclip")
                     .font(.title2)
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(.blue)
                 Text("Homie")
                     .font(.title2)
                     .fontWeight(.semibold)
@@ -408,11 +450,11 @@ struct NotionHomeView: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 14))
-                    .foregroundStyle(selectedSection == value ? .yellow : .primary)
+                    .foregroundStyle(selectedSection == value ? .blue : .primary)
                     .frame(width: 20)
                 
                 Text(title)
-                    .foregroundStyle(selectedSection == value ? .yellow : .primary)
+                    .foregroundStyle(selectedSection == value ? .blue : .primary)
                     .font(.system(size: 14))
                 
                 Spacer()
@@ -472,12 +514,204 @@ struct NotionHomeView: View {
     private var homeView: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Welcome message
-            Text("Welcome to Clippy")
-                .font(.largeTitle)
-                .fontWeight(.bold)
+            HStack {
+                Text("Welcome to Clippy")
+                    .font(.largeTitle)
+                    .fontWeight(.bold)
+                
+                Spacer()
+                
+                // Notch expansion mode buttons
+                HStack(spacing: 8) {
+                    ForEach(NotchExpansionMode.allCases, id: \.self) { mode in
+                        NotchModeButton(
+                            mode: mode,
+                            isActive: notchManager.isExpanded && notchManager.currentMode == mode,
+                            action: { notchManager.toggle(mode: mode) }
+                        )
+                    }
+                    
+                    // Close button (only shown when expanded)
+                    if notchManager.isExpanded {
+                        Button(action: {
+                            notchManager.hide()
+                        }) {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 12, weight: .bold))
+                                .padding(8)
+                                .background(Color.red.opacity(0.2))
+                                .foregroundColor(.red)
+                                .cornerRadius(6)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    
+                    // Notch button for voice notch states (listening -> thinking -> closed)
+                    Button(action: {
+                        cycleNotchState()
+                    }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: notchStateIcon)
+                                .font(.system(size: 12, weight: .medium))
+                            Text("Notch")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(notchStateColor.opacity(0.2))
+                        .foregroundColor(notchStateColor)
+                        .cornerRadius(6)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
+                    // Touch Visualization card
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Touch Visualization")
+                            .font(.headline)
+                        
+                        Text("Test real-time trackpad touch visualization. This shows touch positions, pressure, and gestures on your trackpad.")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        Button(action: {
+                            openTouchVisualization()
+                        }) {
+                            HStack {
+                                Image(systemName: "hand.point.up.left.fill")
+                                Text("Open Touch Visualization")
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Color.blue.opacity(0.2))
+                            .foregroundColor(.blue)
+                            .cornerRadius(8)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.top, 4)
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.7))
+                    .cornerRadius(8)
+                    
+                    // Notch Animation Debug Controls card
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("Notch Animation Debug")
+                            .font(.headline)
+                        
+                        // Spawn Area Size Slider
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Spawn Area Size:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text(String(format: "%.2f", notchManager.spawnAreaSize))
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Slider(
+                                value: Binding(
+                                    get: { notchManager.spawnAreaSize },
+                                    set: { notchManager.spawnAreaSize = $0 }
+                                ),
+                                in: 0.0...1.0,
+                                step: 0.01
+                            )
+                            
+                            Text("Controls the size of the red border (spawn area) for blue squares")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Divider()
+                        
+                        // Animation-Text Spacing Slider
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Animation-Text Spacing:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text("\(Int(notchManager.animationTextSpacing))")
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Slider(
+                                value: Binding(
+                                    get: { notchManager.animationTextSpacing },
+                                    set: { notchManager.animationTextSpacing = $0 }
+                                ),
+                                in: 0...30,
+                                step: 1
+                            )
+                            
+                            Text("Controls the spacing between the blue squares animation and the text")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Divider()
+                        
+                        // Circle Size Slider
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Circle Size:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text(String(format: "%.2f", notchManager.circleSize))
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Slider(
+                                value: Binding(
+                                    get: { notchManager.circleSize },
+                                    set: { notchManager.circleSize = $0 }
+                                ),
+                                in: 0.0...1.0,
+                                step: 0.01
+                            )
+                            
+                            Text("Controls the size of the circular crop area (0.0 = smallest, 1.0 = full)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                        
+                        Divider()
+                        
+                        // Vignette Intensity Slider
+                        VStack(alignment: .leading, spacing: 4) {
+                            HStack {
+                                Text("Vignette Intensity:")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text(String(format: "%.2f", notchManager.vignetteIntensity))
+                                    .font(.system(.body, design: .monospaced))
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Slider(
+                                value: Binding(
+                                    get: { notchManager.vignetteIntensity },
+                                    set: { notchManager.vignetteIntensity = $0 }
+                                ),
+                                in: 0.0...1.0,
+                                step: 0.01
+                            )
+                            
+                            Text("Controls the edge fade/blur intensity (0.0 = no fade, 1.0 = maximum fade)")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    .padding()
+                    .background(Color(NSColor.controlBackgroundColor).opacity(0.7))
+                    .cornerRadius(8)
+                    
                     // How to Use Homie card
                     VStack(alignment: .leading, spacing: 8) {
                         Text("How to Use Homie")
@@ -643,9 +877,40 @@ struct NotionHomeView: View {
         return "Hey \(userName),\n\nDo you want to go for a coffee later this week?\nWould love to share more insights about Clippy with you.\n\nBest,\nMax"
     }
     
+    private func openTouchVisualization() {
+        // Create or reuse the window controller
+        if touchVisualizationWindowController == nil {
+            touchVisualizationWindowController = TouchVisualizationWindowController()
+        }
+        touchVisualizationWindowController?.showWindow()
+    }
     
 }
 
+// MARK: - Notch Mode Button
+
+struct NotchModeButton: View {
+    let mode: NotchExpansionMode
+    let isActive: Bool
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Image(systemName: mode.icon)
+                    .font(.system(size: 12))
+                Text(mode.rawValue)
+                    .font(.system(size: 12))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(isActive ? Color.blue : Color.blue.opacity(0.15))
+            .foregroundColor(isActive ? .white : .blue)
+            .cornerRadius(6)
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 #Preview {
     NotionHomeView()
