@@ -301,6 +301,25 @@ final class NotchManager: ObservableObject {
             }
         }
         
+        // Ensure all Reminder fields exist (even if empty)
+        if toolCall.function.name == "reminder_create" {
+            if editableToolArguments["title"] == nil {
+                editableToolArguments["title"] = ""
+            }
+            if editableToolArguments["notes"] == nil {
+                editableToolArguments["notes"] = ""
+            }
+            if editableToolArguments["dueDate"] == nil {
+                editableToolArguments["dueDate"] = ""
+            }
+            if editableToolArguments["priority"] == nil {
+                editableToolArguments["priority"] = "0"
+            }
+            if editableToolArguments["alarmOffset"] == nil {
+                editableToolArguments["alarmOffset"] = ""
+            }
+        }
+        
         // Show tool confirmation notch
         showVoiceNotch(state: .toolConfirmation)
     }
@@ -322,7 +341,10 @@ final class NotchManager: ObservableObject {
             } else if key == "priority" {
                 // Convert priority to integer
                 finalArguments[key] = Int(value) ?? 0
-            } else {
+            } else if key == "alarmOffset" && !value.isEmpty {
+                // Convert alarmOffset to integer
+                finalArguments[key] = Int(value) ?? 0
+            } else if !value.isEmpty {
                 finalArguments[key] = value
             }
         }
@@ -437,6 +459,44 @@ final class NotchManager: ObservableObject {
             }
         )
     }
+    
+    /// Debug method to show tool confirmation with mock Reminder data
+    func debugShowReminderToolConfirmation() {
+        let today = DateFormatter()
+        today.dateFormat = "yyyy-MM-dd"
+        let todayString = today.string(from: Date())
+        
+        let mockArguments = """
+        {
+            "title": "Review project proposal",
+            "notes": "Check the budget and timeline before the meeting",
+            "dueDate": "\(todayString)T15:00:00",
+            "priority": 2,
+            "alarmOffset": -900
+        }
+        """
+        
+        let mockToolCall = MCPToolCall(
+            id: "debug-call-789",
+            type: "function",
+            function: MCPFunctionCall(
+                name: "reminder_create",
+                arguments: mockArguments
+            )
+        )
+        
+        showToolConfirmation(
+            toolCall: mockToolCall,
+            onApproved: { confirmedCall in
+                Logger.info("🐛 Debug: Reminder tool approved with args: \(confirmedCall.function.arguments)", module: "Debug")
+                NotchManager.shared.hideVoiceNotch()
+            },
+            onCancelled: {
+                Logger.info("🐛 Debug: Reminder tool cancelled", module: "Debug")
+                NotchManager.shared.hideVoiceNotch()
+            }
+        )
+    }
 }
 
 // MARK: - Notch Content Views
@@ -453,7 +513,7 @@ struct NotchSideView: View {
                 
                 Image(systemName: "play.fill")
                     .font(.system(size: 20))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(.blue)
                 
                 Image(systemName: "forward.fill")
                     .font(.system(size: 16))
@@ -497,7 +557,7 @@ struct NotchDownView: View {
         VStack(spacing: 12) {
             Image(systemName: "paperclip")
                 .font(.system(size: 28))
-                .foregroundStyle(.yellow)
+                .foregroundStyle(.blue)
             
             Text("Homie")
                 .font(.headline)
@@ -513,7 +573,7 @@ struct NotchDownView: View {
             VStack(spacing: 8) {
                 HStack {
                     Image(systemName: "mic.fill")
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(.blue)
                     Text("Ready to listen")
                         .font(.caption)
                         .foregroundStyle(.white.opacity(0.8))
@@ -538,6 +598,18 @@ struct NotchDownView: View {
 struct NotchVoiceView: View {
     @ObservedObject private var notchManager = NotchManager.shared
     
+    // State for managing blur transition from Listening to Thinking/Processing
+    @State private var oldTextBlur: CGFloat = 0  // Blur for "Listening" text (0 to 70% over 700ms)
+    @State private var newTextBlur: CGFloat = 0  // Blur for new text (starts at 70%, goes to 0% over 500ms)
+    @State private var previousState: VoiceNotchState? = nil
+    @State private var isTransitioning: Bool = false
+    @State private var showNewText: Bool = false  // When to show the new text
+    @State private var displayText: String = ""
+    
+    // 70% of maximum blur (using 30 as max, so 70% = 21)
+    private let maxBlur: CGFloat = 30
+    private let blur70Percent: CGFloat = 21
+    
     var body: some View {
         Group {
             if notchManager.voiceState == .toolConfirmation {
@@ -558,17 +630,101 @@ struct NotchVoiceView: View {
                             .font(.system(size: 13, weight: .medium))
                             .opacity(0)
                         
-                        // Actual visible text
-                        Text(stateText)
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(.white)
+                        // Text layers for smooth transition
+                        ZStack {
+                            // Old "Listening" text that blurs out to 70%
+                            if isTransitioning && previousState == .listening && !showNewText {
+                                Text("Listening")
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .blur(radius: oldTextBlur)
+                            }
+                            
+                            // New text that appears at 70% blur and fades to 0%
+                            if showNewText || !isTransitioning {
+                                Text(displayText)
+                                    .font(.system(size: 13, weight: .medium))
+                                    .foregroundStyle(.white)
+                                    .blur(radius: newTextBlur)
+                            }
+                        }
                     }
                 }
                 .padding(.horizontal, 24)
                 .padding(.top, 4)
             }
         }
-        .animation(.easeInOut(duration: 0.2), value: notchManager.voiceState)
+        .onChange(of: notchManager.voiceState) { oldValue, newValue in
+            handleStateChange(from: oldValue, to: newValue)
+        }
+        .onAppear {
+            updateDisplayText(for: notchManager.voiceState)
+        }
+    }
+    
+    private func handleStateChange(from oldState: VoiceNotchState?, to newState: VoiceNotchState?) {
+        // Check if transitioning from listening to thinking/processing
+        if oldState == .listening && (newState == .thinking || newState == .processing) {
+            isTransitioning = true
+            previousState = oldState
+            oldTextBlur = 0
+            newTextBlur = 0
+            showNewText = false
+            updateDisplayText(for: newState)
+            
+            // Animate "Listening" text blur to 70% over 700ms
+            withAnimation(.easeInOut(duration: 0.7)) {
+                oldTextBlur = blur70Percent
+            }
+            
+            // After 700ms, show new text at 70% blur and fade to 0% over 500ms
+            Task {
+                // Wait for 700ms for old text to reach 70% blur
+                try? await Task.sleep(nanoseconds: 700_000_000)
+                await MainActor.run {
+                    // Switch to new text at 70% blur
+                    showNewText = true
+                    newTextBlur = blur70Percent
+                    
+                    // Animate new text blur from 70% to 0% over 500ms
+                    withAnimation(.easeInOut(duration: 0.5)) {
+                        newTextBlur = 0
+                    }
+                    
+                    // After transition completes, clean up
+                    Task {
+                        try? await Task.sleep(nanoseconds: 500_000_000)
+                        await MainActor.run {
+                            isTransitioning = false
+                            previousState = nil
+                            oldTextBlur = 0
+                            newTextBlur = 0
+                        }
+                    }
+                }
+            }
+        } else {
+            // Normal state change - update immediately
+            isTransitioning = false
+            previousState = nil
+            oldTextBlur = 0
+            newTextBlur = 0
+            showNewText = false
+            updateDisplayText(for: newState)
+        }
+    }
+    
+    private func updateDisplayText(for state: VoiceNotchState?) {
+        switch state {
+        case .listening:
+            displayText = "Listening"
+        case .thinking:
+            displayText = "Thinking"
+        case .processing:
+            displayText = "Processing"
+        case .toolConfirmation, nil:
+            displayText = ""
+        }
     }
     
     private var stateText: String {
@@ -595,7 +751,7 @@ struct NotchWideView: View {
             HStack {
                 Image(systemName: "paperclip")
                     .font(.system(size: 24))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(.blue)
                 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Homie")
@@ -626,7 +782,7 @@ struct NotchWideView: View {
             HStack(spacing: 20) {
                 // Quick actions
                 VStack(spacing: 12) {
-                    QuickActionButton(icon: "mic.fill", label: "Voice", color: .yellow)
+                    QuickActionButton(icon: "mic.fill", label: "Voice", color: .blue)
                     QuickActionButton(icon: "keyboard", label: "Type", color: .blue)
                 }
                 
@@ -661,10 +817,16 @@ struct ToolConfirmationNotchView: View {
         notchManager.pendingToolCall?.function.name.contains("calendar") ?? false
     }
     
+    private var isReminderTool: Bool {
+        notchManager.pendingToolCall?.function.name.contains("reminder") ?? false
+    }
+    
     var body: some View {
         Group {
             if isCalendarTool {
                 CalendarToolConfirmationView()
+            } else if isReminderTool {
+                ReminderToolConfirmationView()
             } else {
                 LinearToolConfirmationView()
             }
@@ -809,6 +971,7 @@ struct LinearToolConfirmationView: View {
         }
         .padding(16)
         .frame(width: 350)
+        .colorScheme(.dark)
     }
     
     // MARK: - Status Properties
@@ -900,7 +1063,7 @@ struct CalendarToolConfirmationView: View {
             HStack(spacing: 6) {
                 Image(systemName: "play.fill")
                     .font(.system(size: 8))
-                    .foregroundStyle(.green)
+                    .foregroundStyle(.white)
                 
                 // Start Date picker button
                 DatePickerButton(
@@ -912,12 +1075,13 @@ struct CalendarToolConfirmationView: View {
                 // Start Time input
                 TimeInputField(timeText: $startTimeText, onChanged: { updateStartDateTime() })
             }
+            .padding(.leading, 8)
             
             // End Date/Time row
             HStack(spacing: 6) {
                 Image(systemName: "stop.fill")
                     .font(.system(size: 8))
-                    .foregroundStyle(.red.opacity(0.8))
+                    .foregroundStyle(.white)
                 
                 // End Date picker button
                 DatePickerButton(
@@ -929,12 +1093,13 @@ struct CalendarToolConfirmationView: View {
                 // End Time input
                 TimeInputField(timeText: $endTimeText, onChanged: { updateEndDateTime() })
             }
+            .padding(.leading, 8)
             
             // Location field
             HStack(spacing: 4) {
                 Image(systemName: "location.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.5))
+                    .foregroundStyle(.white)
                 TextField("Add location...", text: Binding(
                     get: { notchManager.editableToolArguments["location"] ?? "" },
                     set: { notchManager.editableToolArguments["location"] = $0 }
@@ -954,7 +1119,7 @@ struct CalendarToolConfirmationView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "person.2.fill")
                         .font(.system(size: 10))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(.white)
                     TextField("Attendees...", text: Binding(
                         get: { notchManager.editableToolArguments["attendees"] ?? "" },
                         set: { notchManager.editableToolArguments["attendees"] = $0 }
@@ -991,7 +1156,7 @@ struct CalendarToolConfirmationView: View {
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(.white)
                         .frame(width: 28, height: 28)
-                        .background(Color.indigo)
+                        .background(Color.blue)
                         .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -1074,6 +1239,303 @@ struct CalendarToolConfirmationView: View {
     }
 }
 
+// MARK: - Reminder Tool Confirmation View
+
+struct ReminderToolConfirmationView: View {
+    @ObservedObject private var notchManager = NotchManager.shared
+    
+    // State for date/time pickers
+    @State private var showDueDatePicker = false
+    @State private var dueDate: Date = Date()
+    @State private var dueTimeText: String = "15:00"
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Title field
+            TextField("Add reminder title...", text: Binding(
+                get: { notchManager.editableToolArguments["title"] ?? "" },
+                set: { notchManager.editableToolArguments["title"] = $0 }
+            ))
+            .textFieldStyle(.plain)
+            .font(.system(size: 15, weight: .semibold))
+            .foregroundStyle(.white)
+            .padding(8)
+            .background(.clear)
+            
+            // Notes field
+            TextField("Add notes...", text: Binding(
+                get: { notchManager.editableToolArguments["notes"] ?? "" },
+                set: { notchManager.editableToolArguments["notes"] = $0 }
+            ), axis: .vertical)
+            .textFieldStyle(.plain)
+            .font(.system(size: 12))
+            .foregroundStyle(.white.opacity(0.9))
+            .padding(8)
+            .background(.clear)
+            .frame(minHeight: 40, alignment: .topLeading)
+            
+            // Due Date/Time row
+            HStack(spacing: 6) {
+                Image(systemName: "calendar")
+                    .font(.system(size: 8))
+                    .foregroundStyle(.white)
+                
+                // Due Date picker button
+                DatePickerButton(
+                    date: $dueDate,
+                    showPicker: $showDueDatePicker,
+                    onDateChanged: { updateDueDateTime() }
+                )
+                
+                // Due Time input
+                TimeInputField(timeText: $dueTimeText, onChanged: { updateDueDateTime() })
+            }
+            .padding(.leading, 8)
+            
+            // Priority, Alarm, and Action buttons
+            HStack(spacing: 8) {
+                // Priority dropdown
+                Menu {
+                    Button(action: { selectPriority(0) }) {
+                        Label("No priority", systemImage: "minus")
+                    }
+                    Button(action: { selectPriority(1) }) {
+                        Label("Low", systemImage: "equal")
+                    }
+                    Button(action: { selectPriority(5) }) {
+                        Label("Medium", systemImage: "equal.square")
+                    }
+                    Button(action: { selectPriority(9) }) {
+                        Label("High", systemImage: "exclamationmark.square.fill")
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: priorityIcon)
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.5))
+                        Text(priorityText)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.white.opacity(0.08))
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                
+                // Alarm offset dropdown
+                Menu {
+                    Button(action: { selectAlarmOffset(5 * 60) }) {
+                        Label("5 minutes", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(10 * 60) }) {
+                        Label("10 minutes", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(15 * 60) }) {
+                        Label("15 minutes", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(30 * 60) }) {
+                        Label("30 minutes", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(60 * 60) }) {
+                        Label("1 hour", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(2 * 60 * 60) }) {
+                        Label("2 hours", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(24 * 60 * 60) }) {
+                        Label("1 day", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(2 * 24 * 60 * 60) }) {
+                        Label("2 days", systemImage: "bell.fill")
+                    }
+                    Button(action: { selectAlarmOffset(0) }) {
+                        Label("No alarm", systemImage: "bell.slash.fill")
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "bell.fill")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.white.opacity(0.5))
+                        Text(alarmText)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 6)
+                    .background(.white.opacity(0.08))
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
+                .menuStyle(.borderlessButton)
+                
+                Spacer()
+                
+                // Cancel button
+                Button(action: {
+                    notchManager.cancelToolCall()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.8))
+                        .frame(width: 28, height: 28)
+                        .background(.white.opacity(0.15))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+                
+                // Execute button
+                Button(action: {
+                    notchManager.approveToolCall()
+                }) {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(width: 28, height: 28)
+                        .background(Color.blue)
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(16)
+        .frame(width: 380)
+        .colorScheme(.dark)
+        .onAppear {
+            parseInitialDueDateTime()
+        }
+    }
+    
+    // MARK: - Date/Time Management
+    
+    private func parseInitialDueDateTime() {
+        // Parse due datetime
+        if let dueDT = notchManager.editableToolArguments["dueDate"],
+           let date = parseDateTimeString(dueDT) {
+            dueDate = date
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            dueTimeText = formatter.string(from: date)
+        }
+    }
+    
+    private func parseDateTimeString(_ dateTime: String) -> Date? {
+        let formatters = [
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd HH:mm"
+        ]
+        
+        for format in formatters {
+            let formatter = DateFormatter()
+            formatter.dateFormat = format
+            formatter.timeZone = TimeZone.current
+            if let date = formatter.date(from: dateTime) {
+                return date
+            }
+        }
+        
+        // Try ISO8601
+        if let date = ISO8601DateFormatter().date(from: dateTime) {
+            return date
+        }
+        
+        return nil
+    }
+    
+    private func updateDueDateTime() {
+        let dateTimeString = combineDateAndTime(date: dueDate, timeText: dueTimeText)
+        notchManager.editableToolArguments["dueDate"] = dateTimeString
+    }
+    
+    private func combineDateAndTime(date: Date, timeText: String) -> String {
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd"
+        let dateString = dateFormatter.string(from: date)
+        
+        // Parse time text (HH:mm format)
+        let timeParts = timeText.split(separator: ":")
+        let hour = timeParts.count > 0 ? String(timeParts[0]) : "00"
+        let minute = timeParts.count > 1 ? String(timeParts[1]) : "00"
+        
+        return "\(dateString)T\(hour):\(minute):00"
+    }
+    
+    // MARK: - Priority Properties
+    
+    private var priorityText: String {
+        guard let priorityStr = notchManager.editableToolArguments["priority"],
+              let priority = Int(priorityStr) else {
+            return "No priority"
+        }
+        switch priority {
+        case 0: return "No priority"
+        case 1...4: return "Low"
+        case 5: return "Medium"
+        case 6...9: return "High"
+        default: return "No priority"
+        }
+    }
+    
+    private var priorityIcon: String {
+        guard let priorityStr = notchManager.editableToolArguments["priority"],
+              let priority = Int(priorityStr) else {
+            return "minus"
+        }
+        switch priority {
+        case 0: return "minus"
+        case 1...4: return "equal"
+        case 5: return "equal.square"
+        case 6...9: return "exclamationmark.square.fill"
+        default: return "minus"
+        }
+    }
+    
+    private func selectPriority(_ priority: Int) {
+        notchManager.editableToolArguments["priority"] = String(priority)
+    }
+    
+    // MARK: - Alarm Properties
+    
+    private var alarmText: String {
+        guard let offsetStr = notchManager.editableToolArguments["alarmOffset"],
+              let offset = Int(offsetStr), offset != 0 else {
+            return "No alarm"
+        }
+        
+        let absOffset = abs(offset)
+        let minutes = absOffset / 60
+        let hours = minutes / 60
+        let days = hours / 24
+        
+        if days >= 2 {
+            return "\(days) days"
+        } else if days == 1 {
+            return "1 day"
+        } else if hours >= 2 {
+            return "\(hours) hours"
+        } else if hours == 1 {
+            return "1 hour"
+        } else if minutes >= 30 {
+            return "\(minutes) min"
+        } else {
+            return "\(minutes) min"
+        }
+    }
+    
+    private func selectAlarmOffset(_ seconds: Int) {
+        if seconds == 0 {
+            notchManager.editableToolArguments["alarmOffset"] = ""
+        } else {
+            // Store as negative offset (before due date)
+            notchManager.editableToolArguments["alarmOffset"] = String(-seconds)
+        }
+    }
+}
+
 // MARK: - Date Picker Button
 
 struct DatePickerButton: View {
@@ -1091,18 +1553,13 @@ struct DatePickerButton: View {
         Button(action: {
             showPicker.toggle()
         }) {
-            HStack(spacing: 4) {
-                Image(systemName: "calendar")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.white.opacity(0.5))
-                Text(dateText)
-                    .font(.system(size: 10, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(.white.opacity(0.08))
-            .cornerRadius(5)
+            Text(dateText)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundStyle(.white.opacity(0.8))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.white.opacity(0.08))
+                .cornerRadius(5)
         }
         .buttonStyle(.plain)
         .popover(isPresented: $showPicker, arrowEdge: .bottom) {
@@ -1126,23 +1583,18 @@ struct TimeInputField: View {
     var onChanged: () -> Void
     
     var body: some View {
-        HStack(spacing: 4) {
-            Image(systemName: "clock")
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.5))
-            TextField("HH:mm", text: $timeText)
-                .textFieldStyle(.plain)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.8))
-                .frame(width: 40)
-                .onChange(of: timeText) { _ in
-                    onChanged()
-                }
-        }
-        .padding(.horizontal, 8)
-        .padding(.vertical, 5)
-        .background(.white.opacity(0.08))
-        .cornerRadius(5)
+        TextField("HH:mm", text: $timeText)
+            .textFieldStyle(.plain)
+            .font(.system(size: 10, weight: .medium, design: .monospaced))
+            .foregroundStyle(.white.opacity(0.8))
+            .frame(width: 40)
+            .onChange(of: timeText) { _ in
+                onChanged()
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            .background(.white.opacity(0.08))
+            .cornerRadius(5)
     }
 }
 
