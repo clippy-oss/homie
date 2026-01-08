@@ -9,6 +9,7 @@ import (
 
 type MessageRepository interface {
 	Create(ctx context.Context, msg *domain.Message) error
+	CreateOrIgnore(ctx context.Context, msg *domain.Message) error
 	GetByID(ctx context.Context, id string) (*domain.Message, error)
 	GetByChatJID(ctx context.Context, chatJID domain.JID, limit, offset int) ([]*domain.Message, error)
 	GetByChatJIDSince(ctx context.Context, chatJID domain.JID, since time.Time, limit int) ([]*domain.Message, error)

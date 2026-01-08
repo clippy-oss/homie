@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/clippy-oss/homie/whatsapp-bridge/internal/domain"
 )
@@ -20,6 +21,14 @@ func NewMessageRepository(db *gorm.DB) MessageRepository {
 func (r *gormMessageRepository) Create(ctx context.Context, msg *domain.Message) error {
 	model := MessageDomainToModel(msg)
 	return r.db.WithContext(ctx).Create(model).Error
+}
+
+func (r *gormMessageRepository) CreateOrIgnore(ctx context.Context, msg *domain.Message) error {
+	model := MessageDomainToModel(msg)
+	// Use INSERT OR IGNORE to skip duplicates (SQLite)
+	return r.db.WithContext(ctx).
+		Clauses(clause.OnConflict{DoNothing: true}).
+		Create(model).Error
 }
 
 func (r *gormMessageRepository) GetByID(ctx context.Context, id string) (*domain.Message, error) {

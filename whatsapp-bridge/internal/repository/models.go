@@ -7,61 +7,61 @@ import (
 )
 
 type MessageModel struct {
-	ID              string `gorm:"primaryKey"`
-	ChatJID         string `gorm:"index:idx_chat_timestamp"`
-	SenderJID       string
-	Type            string
-	Text            string
-	Caption         string
-	MediaURL        string
-	MediaMimeType   string
-	MediaFileName   string
-	MediaFileSize   int64
-	Timestamp       time.Time `gorm:"index:idx_chat_timestamp"`
-	IsFromMe        bool
-	IsRead          bool `gorm:"index"`
-	QuotedMessageID string
-	ReactionEmoji   string
-	ReactionTarget  string
-	LocationLat     float64
-	LocationLng     float64
-	LocationName    string
-	LocationAddress string
-	ContactName     string
-	ContactPhone    string
-	ContactVCard    string
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID              string    `gorm:"primaryKey;column:id"`
+	ChatJID         string    `gorm:"column:chat_jid;index:idx_chat_timestamp"`
+	SenderJID       string    `gorm:"column:sender_jid"`
+	Type            string    `gorm:"column:type"`
+	Text            string    `gorm:"column:text"`
+	Caption         string    `gorm:"column:caption"`
+	MediaURL        string    `gorm:"column:media_url"`
+	MediaMimeType   string    `gorm:"column:media_mime_type"`
+	MediaFileName   string    `gorm:"column:media_file_name"`
+	MediaFileSize   int64     `gorm:"column:media_file_size"`
+	Timestamp       time.Time `gorm:"column:timestamp;index:idx_chat_timestamp"`
+	IsFromMe        bool      `gorm:"column:is_from_me"`
+	IsRead          bool      `gorm:"column:is_read;index"`
+	QuotedMessageID string    `gorm:"column:quoted_message_id"`
+	ReactionEmoji   string    `gorm:"column:reaction_emoji"`
+	ReactionTarget  string    `gorm:"column:reaction_target"`
+	LocationLat     float64   `gorm:"column:location_lat"`
+	LocationLng     float64   `gorm:"column:location_lng"`
+	LocationName    string    `gorm:"column:location_name"`
+	LocationAddress string    `gorm:"column:location_address"`
+	ContactName     string    `gorm:"column:contact_name"`
+	ContactPhone    string    `gorm:"column:contact_phone"`
+	ContactVCard    string    `gorm:"column:contact_vcard"`
+	CreatedAt       time.Time `gorm:"column:created_at"`
+	UpdatedAt       time.Time `gorm:"column:updated_at"`
 }
 
 func (MessageModel) TableName() string { return "messages" }
 
 type ChatModel struct {
-	JID               string `gorm:"primaryKey"`
-	Type              string
-	Name              string
-	LastMessageTime   time.Time `gorm:"index"`
-	LastMessageText   string
-	LastMessageSender string
-	UnreadCount       int
-	IsMuted           bool
-	IsArchived        bool
-	IsPinned          bool
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
+	JID               string    `gorm:"primaryKey;column:jid"`
+	Type              string    `gorm:"column:type"`
+	Name              string    `gorm:"column:name"`
+	LastMessageTime   time.Time `gorm:"column:last_message_time;index"`
+	LastMessageText   string    `gorm:"column:last_message_text"`
+	LastMessageSender string    `gorm:"column:last_message_sender"`
+	UnreadCount       int       `gorm:"column:unread_count"`
+	IsMuted           bool      `gorm:"column:is_muted"`
+	IsArchived        bool      `gorm:"column:is_archived"`
+	IsPinned          bool      `gorm:"column:is_pinned"`
+	CreatedAt         time.Time `gorm:"column:created_at"`
+	UpdatedAt         time.Time `gorm:"column:updated_at"`
 }
 
 func (ChatModel) TableName() string { return "chats" }
 
 type ContactModel struct {
-	JID          string `gorm:"primaryKey"`
-	Name         string
-	PushName     string
-	BusinessName string
-	PhoneNumber  string `gorm:"index"`
-	AvatarURL    string
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
+	JID          string    `gorm:"primaryKey;column:jid"`
+	Name         string    `gorm:"column:name"`
+	PushName     string    `gorm:"column:push_name"`
+	BusinessName string    `gorm:"column:business_name"`
+	PhoneNumber  string    `gorm:"column:phone_number;index"`
+	AvatarURL    string    `gorm:"column:avatar_url"`
+	CreatedAt    time.Time `gorm:"column:created_at"`
+	UpdatedAt    time.Time `gorm:"column:updated_at"`
 }
 
 func (ContactModel) TableName() string { return "contacts" }

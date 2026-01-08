@@ -8,6 +8,7 @@ import (
 
 	"go.mau.fi/whatsmeow"
 	"go.mau.fi/whatsmeow/proto/waE2E"
+	"go.mau.fi/whatsmeow/proto/waWeb"
 	"go.mau.fi/whatsmeow/store"
 	"go.mau.fi/whatsmeow/types"
 	"go.mau.fi/whatsmeow/types/events"
@@ -270,6 +271,12 @@ func (s *WhatsAppService) handleEvent(evt interface{}) {
 
 	case *events.PushName:
 		s.handlePushName(v)
+
+	case *events.HistorySync:
+		s.handleHistorySync(v)
+
+	case *events.MarkChatAsRead:
+		s.handleMarkChatAsRead(v)
 	}
 }
 
@@ -340,6 +347,234 @@ func (s *WhatsAppService) handlePushName(evt *events.PushName) {
 	if err := s.contactRepo.Upsert(ctx, contact); err != nil {
 		s.logger.Warnf("Failed to update contact push name: %v", err)
 	}
+}
+
+func (s *WhatsAppService) handleHistorySync(evt *events.HistorySync) {
+	ctx := context.Background()
+	data := evt.Data
+	syncType := data.GetSyncType()
+
+	s.logger.Infof("Received history sync: type=%s, conversations=%d, progress=%d%%",
+		syncType.String(),
+		len(data.GetConversations()),
+		data.GetProgress())
+
+	// Only INITIAL_BOOTSTRAP has reliable conversation metadata
+	// RECENT and other types have empty/null metadata
+	isInitialSync := syncType.String() == "INITIAL_BOOTSTRAP"
+
+	// Process each conversation
+	for _, conv := range data.GetConversations() {
+		chatJID, err := types.ParseJID(conv.GetID())
+		if err != nil {
+			s.logger.Warnf("Failed to parse chat JID %s: %v", conv.GetID(), err)
+			continue
+		}
+
+		domainChatJID := s.toDomainJID(chatJID)
+
+		// Only upsert chat metadata for initial bootstrap sync
+		if isInitialSync {
+			// Determine chat type
+			chatType := domain.ChatTypePrivate
+			if chatJID.Server == types.GroupServer {
+				chatType = domain.ChatTypeGroup
+			}
+
+			// Get or create chat
+			chatName := conv.GetName()
+			if chatName == "" {
+				chatName = conv.GetID()
+			}
+
+			chat := &domain.Chat{
+				JID:         domainChatJID,
+				Type:        chatType,
+				Name:        chatName,
+				UnreadCount: int(conv.GetUnreadCount()),
+			}
+
+			if err := s.chatRepo.Upsert(ctx, chat); err != nil {
+				s.logger.Warnf("Failed to upsert chat %s: %v", conv.GetID(), err)
+			}
+		}
+
+		// Process messages in this conversation
+		for _, historyMsg := range conv.GetMessages() {
+			webMsg := historyMsg.GetMessage()
+			if webMsg == nil || webMsg.Message == nil {
+				continue
+			}
+
+			msg := s.convertHistorySyncMessage(webMsg, domainChatJID)
+			if msg == nil {
+				continue
+			}
+
+			// Use CreateOrIgnore to avoid duplicates
+			if err := s.msgRepo.CreateOrIgnore(ctx, msg); err != nil {
+				s.logger.Warnf("Failed to persist history message: %v", err)
+			}
+
+			// For non-initial syncs, ensure the chat exists (create if not)
+			if !isInitialSync {
+				s.ensureChatExists(ctx, domainChatJID, chatJID)
+			}
+		}
+
+		// Update chat with last message info if available (only for initial sync)
+		if isInitialSync && len(conv.GetMessages()) > 0 {
+			lastMsg := conv.GetMessages()[0].GetMessage()
+			if lastMsg != nil && lastMsg.Message != nil {
+				text := s.extractMessageText(lastMsg.Message)
+				senderName := "unknown"
+				if lastMsg.GetKey().GetFromMe() {
+					senderName = "me"
+				} else if lastMsg.GetParticipant() != "" {
+					senderName = lastMsg.GetParticipant()
+				}
+				timestamp := time.Unix(int64(lastMsg.GetMessageTimestamp()), 0)
+				if err := s.chatRepo.UpdateLastMessage(ctx, domainChatJID, text, senderName, timestamp); err != nil {
+					s.logger.Warnf("Failed to update chat last message: %v", err)
+				}
+			}
+		}
+	}
+
+	s.logger.Infof("History sync processing complete")
+}
+
+func (s *WhatsAppService) ensureChatExists(ctx context.Context, domainChatJID domain.JID, chatJID types.JID) {
+	// Check if chat exists, create minimal entry if not
+	existing, err := s.chatRepo.GetByJID(ctx, domainChatJID)
+	if err != nil {
+		s.logger.Warnf("Failed to check chat existence: %v", err)
+		return
+	}
+	if existing != nil {
+		return // Chat already exists
+	}
+
+	// Create minimal chat entry
+	chatType := domain.ChatTypePrivate
+	if chatJID.Server == types.GroupServer {
+		chatType = domain.ChatTypeGroup
+	}
+
+	chat := &domain.Chat{
+		JID:  domainChatJID,
+		Type: chatType,
+		Name: chatJID.User, // Use user part as fallback name
+	}
+
+	if err := s.chatRepo.Upsert(ctx, chat); err != nil {
+		s.logger.Warnf("Failed to create chat %s: %v", chatJID.String(), err)
+	}
+}
+
+func (s *WhatsAppService) handleMarkChatAsRead(evt *events.MarkChatAsRead) {
+	ctx := context.Background()
+	chatJID := s.toDomainJID(evt.JID)
+
+	// When a chat is marked as read from another device, reset unread count to 0
+	if evt.Action.GetRead() {
+		if err := s.chatRepo.UpdateUnreadCount(ctx, chatJID, 0); err != nil {
+			s.logger.Warnf("Failed to update unread count for %s: %v", evt.JID.String(), err)
+		} else {
+			s.logger.Infof("Chat %s marked as read from another device", evt.JID.String())
+		}
+	}
+}
+
+func (s *WhatsAppService) convertHistorySyncMessage(webMsg *waWeb.WebMessageInfo, chatJID domain.JID) *domain.Message {
+	if webMsg == nil || webMsg.Message == nil {
+		return nil
+	}
+
+	msgKey := webMsg.GetKey()
+	senderJIDStr := msgKey.GetParticipant()
+	if senderJIDStr == "" {
+		if msgKey.GetFromMe() {
+			// Use own JID for messages from self
+			if s.client != nil && s.client.Store.ID != nil {
+				senderJIDStr = s.client.Store.ID.String()
+			}
+		} else {
+			senderJIDStr = msgKey.GetRemoteJID()
+		}
+	}
+
+	senderJID, _ := types.ParseJID(senderJIDStr)
+	domainSenderJID := s.toDomainJID(senderJID)
+
+	var msgType domain.MessageType
+	var text, caption, mimeType, fileName string
+
+	waMsg := webMsg.Message
+	if waMsg.GetConversation() != "" {
+		msgType = domain.MessageTypeText
+		text = waMsg.GetConversation()
+	} else if waMsg.GetExtendedTextMessage() != nil {
+		msgType = domain.MessageTypeText
+		text = waMsg.GetExtendedTextMessage().GetText()
+	} else if waMsg.GetImageMessage() != nil {
+		msgType = domain.MessageTypeImage
+		caption = waMsg.GetImageMessage().GetCaption()
+		mimeType = waMsg.GetImageMessage().GetMimetype()
+	} else if waMsg.GetVideoMessage() != nil {
+		msgType = domain.MessageTypeVideo
+		caption = waMsg.GetVideoMessage().GetCaption()
+		mimeType = waMsg.GetVideoMessage().GetMimetype()
+	} else if waMsg.GetAudioMessage() != nil {
+		msgType = domain.MessageTypeAudio
+		mimeType = waMsg.GetAudioMessage().GetMimetype()
+	} else if waMsg.GetDocumentMessage() != nil {
+		msgType = domain.MessageTypeDocument
+		caption = waMsg.GetDocumentMessage().GetCaption()
+		mimeType = waMsg.GetDocumentMessage().GetMimetype()
+		fileName = waMsg.GetDocumentMessage().GetFileName()
+	} else if waMsg.GetStickerMessage() != nil {
+		msgType = domain.MessageTypeSticker
+		mimeType = waMsg.GetStickerMessage().GetMimetype()
+	} else {
+		// Skip unsupported message types
+		return nil
+	}
+
+	timestamp := time.Unix(int64(webMsg.GetMessageTimestamp()), 0)
+
+	return &domain.Message{
+		ID:            msgKey.GetID(),
+		ChatJID:       chatJID,
+		SenderJID:     domainSenderJID,
+		Type:          msgType,
+		Text:          text,
+		Caption:       caption,
+		MediaMimeType: mimeType,
+		MediaFileName: fileName,
+		Timestamp:     timestamp,
+		IsFromMe:      msgKey.GetFromMe(),
+		IsRead:        true, // Historical messages are considered read
+	}
+}
+
+func (s *WhatsAppService) extractMessageText(msg *waE2E.Message) string {
+	if msg.GetConversation() != "" {
+		return msg.GetConversation()
+	}
+	if msg.GetExtendedTextMessage() != nil {
+		return msg.GetExtendedTextMessage().GetText()
+	}
+	if msg.GetImageMessage() != nil && msg.GetImageMessage().GetCaption() != "" {
+		return msg.GetImageMessage().GetCaption()
+	}
+	if msg.GetVideoMessage() != nil && msg.GetVideoMessage().GetCaption() != "" {
+		return msg.GetVideoMessage().GetCaption()
+	}
+	if msg.GetDocumentMessage() != nil && msg.GetDocumentMessage().GetCaption() != "" {
+		return msg.GetDocumentMessage().GetCaption()
+	}
+	return "[media]"
 }
 
 func (s *WhatsAppService) convertMessage(evt *events.Message) *domain.Message {
