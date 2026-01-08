@@ -48,11 +48,20 @@ final class NotchManager: ObservableObject {
     // Single voice notch with dynamic state
     private var voiceNotch: DynamicNotch<NotchVoiceView, EmptyView, EmptyView>?
     
+    // Failed paste notch
+    private var failedPasteNotch: DynamicNotch<FailedPasteNotchView, EmptyView, EmptyView>?
+    
     /// Current voice state (nil when not active)
     @Published var voiceState: VoiceNotchState? = nil
     
     /// Whether the voice notch is currently visible
     @Published private(set) var isVoiceNotchVisible: Bool = false
+    
+    /// Text to display in failed paste notch
+    @Published var failedPasteText: String? = nil
+    
+    /// Whether the failed paste notch is currently visible
+    @Published private(set) var isFailedPasteNotchVisible: Bool = false
     
     // MARK: - Tool Confirmation State
     
@@ -235,6 +244,55 @@ final class NotchManager: ObservableObject {
     
     func hideProcessing() {
         hideVoiceNotch()
+    }
+    
+    // MARK: - Failed Paste Notch
+    
+    /// Shows the failed paste notch with the text that couldn't be pasted
+    func showFailedPasteNotch(text: String) {
+        // Hide any expanded notch first
+        if isExpanded {
+            hideImmediately()
+        }
+        
+        // Hide voice notch if visible
+        if isVoiceNotchVisible {
+            hideVoiceNotch()
+        }
+        
+        // If notch is already visible, just update the text
+        if isFailedPasteNotchVisible {
+            failedPasteText = text
+            return
+        }
+        
+        // First time showing, create and expand the notch
+        isFailedPasteNotchVisible = true
+        failedPasteText = text
+        
+        Task {
+            if failedPasteNotch == nil {
+                failedPasteNotch = DynamicNotch(
+                    hoverBehavior: .all,
+                    style: .auto
+                ) {
+                    FailedPasteNotchView()
+                }
+            }
+            await failedPasteNotch?.expand()
+        }
+    }
+    
+    /// Hides the failed paste notch
+    func hideFailedPasteNotch() {
+        guard isFailedPasteNotchVisible else { return }
+        
+        isFailedPasteNotchVisible = false
+        failedPasteText = nil
+        
+        Task {
+            await failedPasteNotch?.hide()
+        }
     }
     
     // MARK: - Tool Confirmation Methods
@@ -1653,4 +1711,61 @@ struct RecentItem: View {
 #Preview("Wide View") {
     NotchWideView()
         .background(.black)
+}
+
+// MARK: - Failed Paste Notch View
+
+struct FailedPasteNotchView: View {
+    @ObservedObject private var notchManager = NotchManager.shared
+    
+    var body: some View {
+        VStack(spacing: 0) {
+            // Scrollable text area - fixed size, scrollable content
+            ScrollView {
+                Text(notchManager.failedPasteText ?? "")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+            }
+            .frame(width: 400, height: 200)
+            .scrollContentBackground(.hidden)
+            
+            // Bottom bar with copy and close buttons
+            HStack {
+                Spacer()
+                
+                // Copy button
+                Button(action: {
+                    if let text = notchManager.failedPasteText {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(text, forType: .string)
+                        Logger.debug("Copied failed paste text to clipboard", module: "Notch")
+                    }
+                }) {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.gray)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+                
+                // Close button
+                Button(action: {
+                    notchManager.hideFailedPasteNotch()
+                }) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.gray)
+                        .frame(width: 24, height: 24)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 8)
+        }
+        .frame(width: 400, height: 240)
+        .background(.black)
+        .colorScheme(.dark)
+    }
 }
