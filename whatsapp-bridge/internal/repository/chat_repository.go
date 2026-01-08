@@ -81,6 +81,13 @@ func (r *gormChatRepository) IncrementUnreadCount(ctx context.Context, jid domai
 		UpdateColumn("unread_count", gorm.Expr("unread_count + ?", 1)).Error
 }
 
+func (r *gormChatRepository) UpdateArchived(ctx context.Context, jid domain.JID, archived bool) error {
+	return r.db.WithContext(ctx).
+		Model(&ChatModel{}).
+		Where("jid = ?", jid.String()).
+		Update("is_archived", archived).Error
+}
+
 func (r *gormChatRepository) Delete(ctx context.Context, jid domain.JID) error {
 	return r.db.WithContext(ctx).
 		Where("jid = ?", jid.String()).

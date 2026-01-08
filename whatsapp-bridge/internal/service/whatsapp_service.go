@@ -324,6 +324,9 @@ func (s *WhatsAppService) handleEvent(evt interface{}) {
 
 	case *events.MarkChatAsRead:
 		s.handleMarkChatAsRead(v)
+
+	case *events.Archive:
+		s.handleArchive(v)
 	}
 }
 
@@ -431,6 +434,7 @@ func (s *WhatsAppService) handleHistorySync(evt *events.HistorySync) {
 				Type:        chatType,
 				Name:        chatName,
 				UnreadCount: int(conv.GetUnreadCount()),
+				IsArchived:  conv.GetArchived(),
 			}
 
 			if err := s.chatRepo.Upsert(ctx, chat); err != nil {
@@ -521,6 +525,22 @@ func (s *WhatsAppService) handleMarkChatAsRead(evt *events.MarkChatAsRead) {
 			s.logger.Warnf("Failed to update unread count for %s: %v", evt.JID.String(), err)
 		} else {
 			s.logger.Infof("Chat %s marked as read from another device", evt.JID.String())
+		}
+	}
+}
+
+func (s *WhatsAppService) handleArchive(evt *events.Archive) {
+	ctx := context.Background()
+	chatJID := s.toDomainJID(evt.JID)
+
+	archived := evt.Action.GetArchived()
+	if err := s.chatRepo.UpdateArchived(ctx, chatJID, archived); err != nil {
+		s.logger.Warnf("Failed to update archived status for %s: %v", evt.JID.String(), err)
+	} else {
+		if archived {
+			s.logger.Infof("Chat %s archived from another device", evt.JID.String())
+		} else {
+			s.logger.Infof("Chat %s unarchived from another device", evt.JID.String())
 		}
 	}
 }
