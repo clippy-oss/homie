@@ -48,11 +48,26 @@ func NewServer(
 	}
 }
 
+// Start starts the gRPC server. It blocks until the server stops.
 func (s *Server) Start() error {
 	lis, err := net.Listen("tcp", s.config.Address)
 	if err != nil {
 		return err
 	}
+
+	return s.server.Serve(lis)
+}
+
+// StartWithReadySignal starts the gRPC server and signals when ready to accept connections.
+// The readyCh channel is closed once the server is listening.
+func (s *Server) StartWithReadySignal(readyCh chan<- struct{}) error {
+	lis, err := net.Listen("tcp", s.config.Address)
+	if err != nil {
+		return err
+	}
+
+	// Signal that we're ready to accept connections
+	close(readyCh)
 
 	return s.server.Serve(lis)
 }

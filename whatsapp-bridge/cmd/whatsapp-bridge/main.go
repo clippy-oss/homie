@@ -125,10 +125,13 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 	// Error channel for server errors
 	errCh := make(chan error, 2)
 
-	// Start gRPC server
+	// Ready channel - closed when gRPC server is listening
+	grpcReadyCh := make(chan struct{})
+
+	// Start gRPC server with ready signal
 	go func() {
 		log.Printf("Starting gRPC server on %s", cfg.GRPCAddress)
-		if err := grpcServer.Start(); err != nil {
+		if err := grpcServer.StartWithReadySignal(grpcReadyCh); err != nil {
 			errCh <- fmt.Errorf("gRPC server error: %w", err)
 		}
 	}()
@@ -141,11 +144,24 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 		}
 	}()
 
+	// Wait for gRPC server to be ready before signaling
+	select {
+	case <-grpcReadyCh:
+		log.Printf("gRPC server is ready and listening")
+	case err := <-errCh:
+		log.Fatalf("Server failed to start: %v", err)
+	case <-time.After(10 * time.Second):
+		log.Fatalf("Timeout waiting for gRPC server to start")
+	}
+
+	// Print ready message for subprocess coordination
+	// This is printed AFTER the gRPC server is actually listening
+	fmt.Println("ready")
+
 	// Auto-connect if device is already registered
 	if device.ID != nil {
 		log.Printf("Device registered, attempting auto-connect...")
 		go func() {
-			time.Sleep(1 * time.Second) // Brief delay to let servers start
 			if err := waSvc.Connect(context.Background()); err != nil {
 				log.Printf("Auto-connect failed: %v", err)
 			} else {
@@ -155,9 +171,6 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 	} else {
 		log.Printf("No device registered. Use gRPC GetPairingQR to pair a device.")
 	}
-
-	// Print ready message for subprocess coordination
-	fmt.Println("ready")
 
 	// Wait for shutdown signal
 	sigCh := make(chan os.Signal, 1)

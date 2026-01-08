@@ -14,7 +14,9 @@ struct MCPSettingsView: View {
 
     @State private var errorMessage: String?
     @State private var showingError = false
-    
+    @State private var showingPairingSheet = false
+    @State private var pairingConfig: MCPServerConfig?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             // Header
@@ -87,34 +89,84 @@ struct MCPSettingsView: View {
         } message: {
             Text(errorMessage ?? "An error occurred")
         }
+        .sheet(isPresented: $showingPairingSheet) {
+            if let config = pairingConfig {
+                devicePairingSheet(for: config)
+            }
+        }
+        .onChange(of: pairingConfig) { _, newValue in
+            // Show sheet when config is set, ensuring state is synchronized
+            if newValue != nil {
+                showingPairingSheet = true
+            }
+        }
     }
-    
-    // MARK: - Actions
-    
-    private func connectServer(_ config: MCPServerConfig) {
-        // OAuth credentials are now stored securely in Supabase Vault
-        // No client-side credential validation needed
 
-        oauthManager.authenticate(serverConfig: config) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let credentials):
-                    mcpManager.connectServer(config.id, credentials: credentials)
-                    Logger.info("✅ MCPSettingsView: Connected to \(config.name)", module: "MCP")
-                    
-                case .failure(let error):
-                    if case .authenticationFailed(let msg) = error, msg == "User cancelled" {
-                        // User cancelled, don't show error
-                        return
+    // MARK: - Pairing Sheet
+
+    @ViewBuilder
+    private func devicePairingSheet(for config: MCPServerConfig) -> some View {
+        if #available(macOS 15.0, *) {
+            let _ = Logger.info("devicePairingSheet: Creating DevicePairingView for \(config.name)", module: "MCP")
+            DevicePairingView(
+                provider: mcpManager.whatsAppProvider,
+                providerName: config.name,
+                onSuccess: {
+                    showingPairingSheet = false
+                    pairingConfig = nil
+                    Logger.info("MCPSettingsView: Connected to \(config.name) via device pairing", module: "MCP")
+                },
+                onCancel: {
+                    showingPairingSheet = false
+                    pairingConfig = nil
+                }
+            )
+        } else {
+            Text("Device pairing requires macOS 15.0 or later")
+                .padding()
+        }
+    }
+
+    // MARK: - Actions
+
+    private func connectServer(_ config: MCPServerConfig) {
+        Logger.info("connectServer called for \(config.name), authType: \(config.authType)", module: "MCP")
+        switch config.authType {
+        case .devicePairing:
+            // Show device pairing sheet for WhatsApp, Telegram, etc.
+            Logger.info("Setting up pairing sheet for \(config.name)", module: "MCP")
+            // Setting pairingConfig shows the sheet (using sheet(item:) binding)
+            pairingConfig = config
+
+        case .oauth:
+            // Use OAuth flow for Linear, Google Calendar, etc.
+            oauthManager.authenticate(serverConfig: config) { result in
+                DispatchQueue.main.async {
+                    switch result {
+                    case .success(let credentials):
+                        mcpManager.connectServer(config.id, credentials: credentials)
+                        Logger.info("✅ MCPSettingsView: Connected to \(config.name)", module: "MCP")
+
+                    case .failure(let error):
+                        if case .authenticationFailed(let msg) = error, msg == "User cancelled" {
+                            // User cancelled, don't show error
+                            return
+                        }
+                        errorMessage = error.localizedDescription
+                        showingError = true
                     }
-                    errorMessage = error.localizedDescription
-                    showingError = true
                 }
             }
         }
     }
-    
+
     private func disconnectServer(_ serverID: String) {
+        // For WhatsApp, also logout to clear device pairing
+        if serverID == "whatsapp" {
+            Task {
+                try? await mcpManager.whatsAppProvider.logout()
+            }
+        }
         mcpManager.disconnectServer(serverID)
     }
 }
@@ -194,28 +246,34 @@ struct IntegrationCard: View {
             return Color.purple.opacity(0.15)
         case "google_calendar":
             return Color.blue.opacity(0.15)
+        case "whatsapp":
+            return Color.green.opacity(0.15)
         default:
             return Color.gray.opacity(0.15)
         }
     }
-    
+
     private var iconForegroundColor: Color {
         switch config.id {
         case "linear":
             return .purple
         case "google_calendar":
             return .blue
+        case "whatsapp":
+            return .green
         default:
             return .gray
         }
     }
-    
+
     private var statusText: String {
         switch status {
         case .disconnected:
             return config.description
         case .connecting:
             return "Connecting..."
+        case .pairing:
+            return "Waiting for pairing..."
         case .connected(let email):
             if let email = email {
                 return email

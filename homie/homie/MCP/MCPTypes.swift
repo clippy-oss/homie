@@ -147,11 +147,12 @@ struct MCPToolResult {
 // MARK: - MCP Server Configuration
 
 /// Configuration for an MCP server connection
-struct MCPServerConfig: Codable, Identifiable {
+struct MCPServerConfig: Codable, Identifiable, Equatable {
     let id: String
     let name: String
     let description: String
     let iconName: String  // SF Symbol name
+    let authType: MCPAuthType
     let authURL: String
     let tokenURL: String
     let scopes: [String]
@@ -162,13 +163,27 @@ struct MCPServerConfig: Codable, Identifiable {
 enum MCPConnectionStatus: Equatable {
     case disconnected
     case connecting
+    case pairing       // Waiting for device pairing (QR/code)
     case connected(email: String?)
     case error(String)
-    
+
     var isConnected: Bool {
         if case .connected = self { return true }
         return false
     }
+
+    var isPairing: Bool {
+        if case .pairing = self { return true }
+        return false
+    }
+}
+
+// MARK: - Auth Type
+
+/// Authentication type for MCP servers
+enum MCPAuthType: String, Codable {
+    case oauth           // Linear, Google Calendar - uses OAuth flow
+    case devicePairing   // WhatsApp, Telegram, Signal - uses device pairing
 }
 
 // MARK: - OAuth Types
@@ -243,17 +258,19 @@ extension MCPServerConfig {
         name: "Linear",
         description: "Manage issues and projects",
         iconName: "square.stack.3d.up",
+        authType: .oauth,
         authURL: "https://linear.app/oauth/authorize",
         tokenURL: "https://api.linear.app/oauth/token",
         scopes: ["read", "write"],
         redirectPath: "oauth/linear"
     )
-    
+
     static let googleCalendar = MCPServerConfig(
         id: "google_calendar",
         name: "Google Calendar",
         description: "View and create calendar events",
         iconName: "calendar",
+        authType: .oauth,
         authURL: "https://accounts.google.com/o/oauth2/v2/auth",
         tokenURL: "https://oauth2.googleapis.com/token",
         scopes: ["https://www.googleapis.com/auth/calendar.events"],
@@ -265,7 +282,8 @@ extension MCPServerConfig {
         name: "WhatsApp",
         description: "Send and receive WhatsApp messages",
         iconName: "message.fill",
-        authURL: "",  // Local service - no OAuth
+        authType: .devicePairing,
+        authURL: "",
         tokenURL: "",
         scopes: [],
         redirectPath: ""

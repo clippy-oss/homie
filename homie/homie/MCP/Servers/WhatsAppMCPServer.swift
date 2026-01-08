@@ -35,6 +35,7 @@ class WhatsAppMCPServer: MCPServerProtocol, ObservableObject {
             name: "WhatsApp",
             description: "Send and receive WhatsApp messages",
             iconName: "message.fill",
+            authType: .devicePairing,
             authURL: "",
             tokenURL: "",
             scopes: [],
@@ -50,7 +51,8 @@ class WhatsAppMCPServer: MCPServerProtocol, ObservableObject {
             .map { status -> MCPConnectionStatus in
                 switch status {
                 case .connected: return .connected(email: nil)
-                case .disconnected, .pairing: return .disconnected
+                case .disconnected: return .disconnected
+                case .pairing: return .pairing
                 case .connecting: return .connecting
                 case .error(let msg): return .error(msg)
                 }

@@ -177,6 +177,7 @@
 				C6EFBFBF2E2823D200277948 /* Frameworks */,
 				C6EFBFC02E2823D200277948 /* Resources */,
 				C67409F12E89CC4D00A56103 /* Copy XCFramework */,
+				25726FCF2F104C69005AC584 /* Build Whatsapp Bridge */,
 			);
 			buildRules = (
 			);
@@ -350,6 +351,25 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "#!/bin/bash\nset -e\n\nPROTO_DIR=\"${PROJECT_DIR}/../whatsapp-bridge/api/proto\"\nOUTPUT_DIR=\"${PROJECT_DIR}/homie/MessagingProviders/WhatsApp/Generated\"\nPROTOC=\"/opt/homebrew/bin/protoc\"\nSWIFT_PLUGIN=\"/opt/homebrew/bin/protoc-gen-swift\"\nGRPC_PLUGIN=\"/opt/homebrew/opt/protoc-gen-grpc-swift/bin/protoc-gen-grpc-swift-2\"\n\nmkdir -p \"$OUTPUT_DIR\"\n\n# Only regenerate if proto is newer than output\nif [ \"$PROTO_DIR/whatsapp.proto\" -nt \"$OUTPUT_DIR/whatsapp.pb.swift\" ]; then\n    echo \"Regenerating proto files...\"\n    \"$PROTOC\" \\\n        --proto_path=\"$PROTO_DIR\" \\\n        --plugin=protoc-gen-swift=\"$SWIFT_PLUGIN\" \\\n        --swift_out=\"$OUTPUT_DIR\" \\\n        --swift_opt=Visibility=Public \\\n        --plugin=protoc-gen-grpc-swift=\"$GRPC_PLUGIN\" \\\n        --grpc-swift_out=\"$OUTPUT_DIR\" \\\n        --grpc-swift_opt=Visibility=Public,Client=true,Server=false \\\n        \"$PROTO_DIR/whatsapp.proto\"\n    echo \"Proto files regenerated\"\nelse\n    echo \"Proto files up to date\"\nfi\n";
+		};
+		25726FCF2F104C69005AC584 /* Build Whatsapp Bridge */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Build Whatsapp Bridge";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# Ty#!/bin/bash\nset -e\n\nBRIDGE_DIR=\"${PROJECT_DIR}/../whatsapp-bridge\"\nBINARY_NAME=\"whatsapp-bridge\"\nOUTPUT_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources\"\n\n# Check if Go is installed\nif ! command -v go &> /dev/null; then\n    echo \"warning: Go not installed, skipping whatsapp-bridge build\"\n    exit 0\nfi\n\n# Build the binary\necho \"Building whatsapp-bridge...\"\ncd \"$BRIDGE_DIR\"\nCGO_ENABLED=1 go build -o \"bin/$BINARY_NAME\" ./cmd/whatsapp-bridge\n\n# Copy to app bundle\necho \"Copying whatsapp-bridge to app bundle...\"\nmkdir -p \"$OUTPUT_DIR\"\ncp \"bin/$BINARY_NAME\" \"$OUTPUT_DIR/\"\n\necho \"whatsapp-bridge installed successfully\"\npe a script or drag a script file from your workspace to insert its path.\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

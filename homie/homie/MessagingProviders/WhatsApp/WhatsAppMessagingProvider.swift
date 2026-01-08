@@ -57,7 +57,7 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
     func start() async throws {
         Logger.info("Starting WhatsApp provider", module: "WhatsApp")
 
-        // Start the bridge subprocess
+        // Start the bridge subprocess (waits for "ready" signal)
         try await processManager.start()
 
         // Create gRPC client
@@ -66,20 +66,25 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
 
         // Run the gRPC client connections in a background task
         grpcRunTask = Task {
-            try await client.runConnections()
+            do {
+                try await client.runConnections()
+            } catch {
+                Logger.error("gRPC runConnections ended: \(error)", module: "WhatsApp")
+            }
         }
 
-        // Give the client a moment to connect
-        try await Task.sleep(nanoseconds: 100_000_000) // 100ms
-
-        // Check current login status
+        // The Go bridge now signals "ready" only AFTER the gRPC server is listening.
+        // So we can verify the connection immediately - no polling needed.
         do {
-            let statusResponse = try await client.getConnectionStatus()
+            let statusResponse = try await client.verifyConnection()
             isLoggedIn = statusResponse.isLoggedIn
             connectionStatus = convertConnectionStatus(statusResponse.status)
-            Logger.info("Initial status - connected: \(connectionStatus.isConnected), logged in: \(isLoggedIn)", module: "WhatsApp")
+            Logger.info("WhatsApp provider started - logged in: \(isLoggedIn), status: \(connectionStatus)", module: "WhatsApp")
+
         } catch {
-            Logger.error("Failed to get initial status: \(error.localizedDescription)", module: "WhatsApp")
+            Logger.error("Failed to verify gRPC connection: \(error.localizedDescription)", module: "WhatsApp")
+            // Set error status but don't throw - allow app to continue
+            connectionStatus = .error("Bridge connection failed")
         }
     }
 
@@ -153,12 +158,27 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
 
         return AsyncThrowingStream { continuation in
             Task { [weak self] in
-                guard let self = self, let client = self.grpcClient else {
+                guard let self = self else {
                     continuation.finish(throwing: MessagingProviderError.notConnected)
                     return
                 }
 
+                guard let client = self.grpcClient else {
+                    Logger.error("QR pairing: grpcClient is nil - provider not started?", module: "WhatsApp")
+                    continuation.finish(throwing: MessagingProviderError.notConnected)
+                    return
+                }
+
+                // Check transport readiness (should be instant if start() succeeded)
+                guard client.isTransportReady else {
+                    Logger.error("QR pairing: gRPC transport not ready", module: "WhatsApp")
+                    continuation.yield(.error("WhatsApp bridge not ready. Please try again."))
+                    continuation.finish()
+                    return
+                }
+
                 do {
+                    Logger.info("QR pairing: calling client.getPairingQR()", module: "WhatsApp")
                     let qrStream = client.getPairingQR()
 
                     for try await protoEvent in qrStream {
@@ -167,7 +187,7 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
 
                         // Check for success to update login status
                         if case .success(let userID, _) = pairingEvent {
-                            Logger.info("Pairing successful for user: \(userID)", module: "WhatsApp")
+                            Logger.info("QR pairing successful for user: \(userID)", module: "WhatsApp")
                             await MainActor.run {
                                 self.isLoggedIn = true
                                 self.connectionStatus = .connected
@@ -175,6 +195,7 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
                         }
                     }
 
+                    Logger.info("QR pairing: stream ended", module: "WhatsApp")
                     continuation.finish()
                 } catch {
                     Logger.error("QR pairing error: \(error.localizedDescription)", module: "WhatsApp")
@@ -189,18 +210,26 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
         connectionStatus = .pairing
 
         guard let client = grpcClient else {
+            Logger.error("Code pairing: grpcClient is nil", module: "WhatsApp")
             throw MessagingProviderError.notConnected
+        }
+
+        // Check transport readiness
+        guard client.isTransportReady else {
+            Logger.error("Code pairing: gRPC transport not ready", module: "WhatsApp")
+            throw MessagingProviderError.connectionFailed("WhatsApp bridge not ready")
         }
 
         do {
             let response = try await client.pairWithCode(phoneNumber: phoneNumber)
 
             if !response.errorMessage.isEmpty {
+                Logger.error("Code pairing: server returned error: \(response.errorMessage)", module: "WhatsApp")
                 connectionStatus = .error(response.errorMessage)
                 throw MessagingProviderError.pairingFailed(response.errorMessage)
             }
 
-            Logger.info("Pairing code generated successfully", module: "WhatsApp")
+            Logger.info("Code pairing: received pairing code", module: "WhatsApp")
             return response.pairingCode
         } catch let error as MessagingProviderError {
             throw error
