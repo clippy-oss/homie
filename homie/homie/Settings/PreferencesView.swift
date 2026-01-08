@@ -85,7 +85,7 @@ struct PreferencesView: View {
                         if !localLLMEnabled {
                             HStack(spacing: 8) {
                                 Image(systemName: "exclamationmark.triangle.fill")
-                                    .foregroundColor(.yellow)
+                                    .foregroundColor(.orange)
                                     .font(.caption)
 
                                 Text("AI features require a premium subscription when the local model is disabled.")
@@ -152,6 +152,24 @@ struct PreferencesView: View {
                                 .cornerRadius(8)
                             }
                             .buttonStyle(.plain)
+                            
+                            Button(action: {
+                                Task { @MainActor in
+                                    NotchManager.shared.debugShowReminderToolConfirmation()
+                                }
+                            }) {
+                                HStack {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundColor(.green)
+                                    Text("Reminder Notch")
+                                        .font(.system(size: 12, weight: .medium))
+                                }
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 10)
+                                .background(Color(NSColor.controlBackgroundColor))
+                                .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
                         }
                         
                         Text("Test tool confirmation UIs with mock data")
@@ -175,7 +193,7 @@ struct PreferencesView: View {
         HStack(spacing: 6) {
             Image(systemName: icon)
                 .font(.caption)
-                .foregroundColor(.yellow)
+                .foregroundColor(.accentColor)
                 .frame(width: 16)
             Text(text)
                 .font(.caption)

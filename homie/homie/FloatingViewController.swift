@@ -1118,12 +1118,14 @@ class FloatingViewController: NSViewController {
                     
                     // Create tool confirmation handler
                     let toolConfirmationHandler: OpenAIServiceImpl.ToolCallConfirmationHandler = { [weak self] toolCall in
-                        // Auto-approve read-only tools (get, list, search operations)
+                        // Auto-approve read-only tools (get, list, search operations) and safe operations (browser)
                         let readOnlyToolPrefixes = ["linear_get", "linear_list", "calendar_list", "calendar_get"]
+                        let safeToolNames = ["open_browser"]
                         let isReadOnly = readOnlyToolPrefixes.contains { toolCall.function.name.hasPrefix($0) }
+                        let isSafe = safeToolNames.contains(toolCall.function.name)
                         
-                        if isReadOnly {
-                            Logger.info("🔓 Auto-approving read-only tool: \(toolCall.function.name)", module: "LLM")
+                        if isReadOnly || isSafe {
+                            Logger.info("🔓 Auto-approving read-only/safe tool: \(toolCall.function.name)", module: "LLM")
                             return toolCall
                         }
                         
@@ -1294,7 +1296,7 @@ class FloatingViewController: NSViewController {
         DispatchQueue.main.async { [weak self] in
             if active {
                 // Add visual feedback for processing (e.g., slight yellow tint)
-                self?.visualEffectView.layer?.borderColor = NSColor.systemYellow.withAlphaComponent(0.3).cgColor
+                self?.visualEffectView.layer?.borderColor = NSColor.controlAccentColor.withAlphaComponent(0.3).cgColor
                 self?.visualEffectView.layer?.borderWidth = 2.0
                 // Show waveform animation for processing state (not text entry)
                 if !(self?.isTextEntryMode ?? false) {

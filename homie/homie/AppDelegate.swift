@@ -26,9 +26,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
         // Set NSApplication delegate to catch all text field editing events
         NSApp.delegate = self
         
-        // Initialize yellow caret manager - this will handle all text fields and text views
-        YellowCaretManager.shared.setup()
-        
         // Immediately hide any unwanted windows (like the storyboard window)
         DispatchQueue.main.async {
             for window in NSApp.windows {
@@ -222,13 +219,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
         return true
     }
     
-    // MARK: - NSControlTextEditingDelegate
-    // This catches all NSTextField editing events and sets yellow caret
-    func controlTextDidBeginEditing(_ obj: Notification) {
-        if let textField = obj.object as? NSTextField {
-            YellowCaretManager.shared.applyCaretColor(to: textField)
-        }
-    }
     
     // Helper function to find NSTextView in view hierarchy
     private func findTextView(in view: NSView) -> NSTextView? {

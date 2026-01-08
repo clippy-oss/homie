@@ -94,6 +94,13 @@ class BaseMCPServer: MCPServerProtocol, ObservableObject {
         // Subclasses can override if they need token refresh
     }
     
+    // MARK: - Connection Status (Protected)
+    
+    /// Allow subclasses to set connection status (for servers that don't require OAuth)
+    func setConnectionStatus(_ status: MCPConnectionStatus) {
+        connectionStatus = status
+    }
+    
     // MARK: - Credential Storage
 
     private func keychainKey(for serverID: String) -> KeychainManager.KeychainKey? {

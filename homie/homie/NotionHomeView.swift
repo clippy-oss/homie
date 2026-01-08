@@ -150,7 +150,7 @@ class PlaceholderTextView: NSTextView {
     }
 }
 
-// Custom TextEditor with yellow cursor
+// Custom TextEditor
 struct YellowCursorTextEditor: NSViewRepresentable {
     @Binding var text: String
     var placeholder: String = ""
@@ -168,17 +168,6 @@ struct YellowCursorTextEditor: NSViewRepresentable {
         scrollView.backgroundColor = .clear
         scrollView.drawsBackground = false
         scrollView.documentView = textView
-        
-        // Set yellow insertion point (cursor) color
-        textView.insertionPointColor = .systemYellow
-        
-        // Set yellow selection color (only set once during initialization to avoid crashes)
-        DispatchQueue.main.async {
-            textView.selectedTextAttributes = [
-                .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.3),
-                .foregroundColor: NSColor.labelColor
-            ]
-        }
         
         // Configure text view
         textView.isEditable = true
@@ -213,12 +202,6 @@ struct YellowCursorTextEditor: NSViewRepresentable {
         if textView.string != text {
             textView.string = text
         }
-        
-        // Ensure cursor color is yellow
-        textView.insertionPointColor = .systemYellow
-        
-        // Don't update selection attributes in updateNSView to avoid crashes during text selection
-        // Selection attributes are set once during initialization
     }
     
     func makeCoordinator() -> Coordinator {
@@ -240,33 +223,9 @@ struct YellowCursorTextEditor: NSViewRepresentable {
     }
 }
 
-// Custom NSTextField subclass that always has yellow cursor
+// Custom NSTextField subclass
 class YellowCursorTextField: NSTextField {
-    override func textDidBeginEditing(_ notification: Notification) {
-        super.textDidBeginEditing(notification)
-        if let fieldEditor = self.currentEditor() as? NSTextView {
-            fieldEditor.insertionPointColor = .systemYellow
-            fieldEditor.selectedTextAttributes = [
-                .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.3),
-                .foregroundColor: NSColor.labelColor
-            ]
-        }
-    }
-    
-    override func becomeFirstResponder() -> Bool {
-        let result = super.becomeFirstResponder()
-        // Set yellow cursor when field becomes first responder
-        DispatchQueue.main.async { [weak self] in
-            if let fieldEditor = self?.currentEditor() as? NSTextView {
-                fieldEditor.insertionPointColor = .systemYellow
-                fieldEditor.selectedTextAttributes = [
-                    .backgroundColor: NSColor.systemYellow.withAlphaComponent(0.3),
-                    .foregroundColor: NSColor.labelColor
-                ]
-            }
-        }
-        return result
-    }
+    // No custom cursor color - use system default
 }
 
 // SwiftUI wrapper for TextField with yellow cursor
@@ -359,7 +318,7 @@ struct NotionHomeView: View {
             HStack {
                 Image(systemName: "paperclip")
                     .font(.title2)
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(.blue)
                 Text("Homie")
                     .font(.title2)
                     .fontWeight(.semibold)
@@ -409,11 +368,11 @@ struct NotionHomeView: View {
             HStack(spacing: 8) {
                 Image(systemName: icon)
                     .font(.system(size: 14))
-                    .foregroundStyle(selectedSection == value ? .yellow : .primary)
+                    .foregroundStyle(selectedSection == value ? .blue : .primary)
                     .frame(width: 20)
                 
                 Text(title)
-                    .foregroundStyle(selectedSection == value ? .yellow : .primary)
+                    .foregroundStyle(selectedSection == value ? .blue : .primary)
                     .font(.system(size: 14))
                 
                 Spacer()
@@ -694,8 +653,8 @@ struct NotchModeButton: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 6)
-            .background(isActive ? Color.yellow : Color.yellow.opacity(0.15))
-            .foregroundColor(isActive ? .black : .yellow)
+            .background(isActive ? Color.blue : Color.blue.opacity(0.15))
+            .foregroundColor(isActive ? .white : .blue)
             .cornerRadius(6)
         }
         .buttonStyle(.plain)

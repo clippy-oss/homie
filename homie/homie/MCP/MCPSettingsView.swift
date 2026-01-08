@@ -92,9 +92,58 @@ struct MCPSettingsView: View {
     // MARK: - Actions
     
     private func connectServer(_ config: MCPServerConfig) {
-        // OAuth credentials are now stored securely in Supabase Vault
-        // No client-side credential validation needed
-
+        // Check if this server requires OAuth
+        if config.authURL.isEmpty {
+            // Local server - handle differently based on server type
+            if config.id == "local_reminders" {
+                // Request EventKit permissions directly
+                Task {
+                    do {
+                        guard let server = mcpManager.server(for: config.id) as? LocalRemindersMCPServer else {
+                            await MainActor.run {
+                                errorMessage = "Reminders server not available"
+                                showingError = true
+                            }
+                            return
+                        }
+                        
+                        // Check if already connected (authorized from previous session)
+                        let currentStatus = mcpManager.connectionStatus(for: config.id)
+                        if currentStatus.isConnected {
+                            // Already connected, no need to request again
+                            await MainActor.run {
+                                Logger.info("✅ MCPSettingsView: Already connected to \(config.name)", module: "MCP")
+                            }
+                            return
+                        }
+                        
+                        // Not connected, request authorization
+                        try await server.ensureAuthorization()
+                        await MainActor.run {
+                            Logger.info("✅ MCPSettingsView: Connected to \(config.name)", module: "MCP")
+                        }
+                    } catch {
+                        await MainActor.run {
+                            // Check if connection succeeded despite the error (race condition)
+                            let currentStatus = mcpManager.connectionStatus(for: config.id)
+                            if !currentStatus.isConnected {
+                                errorMessage = error.localizedDescription
+                                showingError = true
+                            } else {
+                                // Connection succeeded, just log it
+                                Logger.info("✅ MCPSettingsView: Connected to \(config.name)", module: "MCP")
+                            }
+                        }
+                    }
+                }
+            } else if config.id == "browser" {
+                // Browser is always connected, no action needed
+                Logger.info("✅ MCPSettingsView: Browser is always connected", module: "MCP")
+            }
+            return
+        }
+        
+        // OAuth servers - use OAuth flow
         oauthManager.authenticate(serverConfig: config) { result in
             DispatchQueue.main.async {
                 switch result {
@@ -234,7 +283,7 @@ struct PremiumRequiredView: View {
         VStack(spacing: 16) {
             Image(systemName: "star.circle.fill")
                 .font(.system(size: 48))
-                .foregroundColor(.yellow)
+                .foregroundColor(.accentColor)
             
             Text("Premium Required")
                 .font(.headline)
