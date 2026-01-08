@@ -79,6 +79,20 @@ final class NotchManager: ObservableObject {
     @Published var showStatusDropdown: Bool = false
     @Published var showPriorityDropdown: Bool = false
     
+    // MARK: - Debug Parameters
+    
+    /// Spawn area size for blue squares (0.0 to 1.0, where 0.2 = 20% of canvas)
+    @Published var spawnAreaSize: Double = 0.40
+    
+    /// Spacing between animation and text in the voice notch
+    @Published var animationTextSpacing: CGFloat = 0.0
+    
+    /// Circle crop size (0.0 to 1.0, controls the visible circular area)
+    @Published var circleSize: Double = 0.8
+    
+    /// Vignette intensity (0.0 to 1.0, controls edge fade/blur)
+    @Published var vignetteIntensity: Double = 0.5
+    
     private init() {}
     
     /// Toggles a specific notch mode
@@ -675,9 +689,16 @@ struct NotchVoiceView: View {
                 ToolConfirmationNotchView()
             } else {
                 // Show compact voice state
-                HStack(spacing: 6) {
-                    // Shader animation on the left (blue for normal states)
-                    ShaderAnimationView(size: 50, color: .blue)
+                HStack(spacing: notchManager.animationTextSpacing) {
+                    // Shader animation on the left (blue for normal states, orange for thinking)
+                    ShaderAnimationView(
+                        size: 50,
+                        color: notchManager.voiceState == .thinking ? .orange : .blue,
+                        spawnAreaSize: notchManager.spawnAreaSize,
+                        circleSize: notchManager.circleSize,
+                        vignetteIntensity: notchManager.vignetteIntensity,
+                        isThinkingMode: notchManager.voiceState == .thinking
+                    )
                         .frame(width: 50, height: 50)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                     
