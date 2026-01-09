@@ -12,7 +12,7 @@ struct IntegrationsView: View {
     @ObservedObject private var mcpManager = MCPManager.shared
     @ObservedObject private var oauthManager = MCPOAuthManager.shared
     @ObservedObject private var entitlementStore = FeatureEntitlementStore.shared
-    @ObservedObject private var messagingService = MessagingService.shared
+    @ObservedObject private var integrationsStore = ServiceIntegrationsStore.shared
 
     @State private var errorMessage: String?
     @State private var showingError = false
@@ -102,8 +102,10 @@ struct IntegrationsView: View {
 
     private var connectedCount: Int {
         var count = mcpManager.connectedServerCount
-        if messagingService.whatsApp.isLoggedIn {
-            count += 1
+        for providerID in MessagingProviderID.allCases {
+            if integrationsStore.isLoggedIn(providerID) {
+                count += 1
+            }
         }
         return count
     }
@@ -113,16 +115,18 @@ struct IntegrationsView: View {
         case .oauth:
             return mcpManager.connectionStatus(for: config.id)
         case .devicePairing:
-            return whatsAppStatus
+            return devicePairingStatus(for: config)
         }
     }
 
-    private var whatsAppStatus: IntegrationStatus {
-        let provider = messagingService.whatsApp
-        if provider.isLoggedIn {
+    private func devicePairingStatus(for config: IntegrationConfig) -> IntegrationStatus {
+        guard let providerID = config.messagingProviderID else {
+            return .disconnected
+        }
+        if integrationsStore.isLoggedIn(providerID) {
             return .connected(email: nil)
         }
-        switch provider.connectionStatus {
+        switch integrationsStore.connectionStatus(providerID) {
         case .connecting:
             return .connecting
         case .pairing:
@@ -138,18 +142,23 @@ struct IntegrationsView: View {
 
     @ViewBuilder
     private func devicePairingSheet(for config: IntegrationConfig) -> some View {
-        DevicePairingView(
-            providerName: config.name,
-            onSuccess: {
-                showingPairingSheet = false
-                pairingIntegration = nil
-                Logger.info("IntegrationsView: Connected to \(config.name) via device pairing", module: "Integrations")
-            },
-            onCancel: {
-                showingPairingSheet = false
-                pairingIntegration = nil
-            }
-        )
+        if let providerID = config.messagingProviderID {
+            DevicePairingView(
+                providerID: providerID,
+                providerName: config.name,
+                onSuccess: {
+                    showingPairingSheet = false
+                    pairingIntegration = nil
+                    Logger.info("IntegrationsView: Connected to \(config.name) via device pairing", module: "Integrations")
+                },
+                onCancel: {
+                    showingPairingSheet = false
+                    pairingIntegration = nil
+                }
+            )
+        } else {
+            Text("Unknown provider")
+        }
     }
 
     // MARK: - Actions
@@ -191,8 +200,10 @@ struct IntegrationsView: View {
             mcpManager.disconnectServer(config.id)
 
         case .devicePairing:
-            Task {
-                try? await messagingService.whatsApp.logout()
+            if let providerID = config.messagingProviderID {
+                Task {
+                    try? await integrationsStore.logout(providerID)
+                }
             }
         }
     }

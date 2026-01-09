@@ -53,6 +53,11 @@ struct IntegrationConfig: Codable, Identifiable, Equatable {
         self.iconBackgroundColor = iconBackgroundColor
         self.iconForegroundColor = iconForegroundColor
     }
+
+    /// Returns the MessagingProviderID for device pairing integrations
+    var messagingProviderID: MessagingProviderID? {
+        MessagingProviderID(rawValue: id)
+    }
 }
 
 // MARK: - Connection Status

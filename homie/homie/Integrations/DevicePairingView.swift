@@ -20,6 +20,7 @@ enum PairingMethod: String, CaseIterable {
 struct DevicePairingView: View {
     // MARK: - Dependencies
 
+    let providerID: MessagingProviderID
     let providerName: String
     let onSuccess: () -> Void
     let onCancel: () -> Void
@@ -36,11 +37,13 @@ struct DevicePairingView: View {
     // MARK: - Initialization
 
     init(
+        providerID: MessagingProviderID,
         providerName: String,
         store: ServiceIntegrationsStore = .shared,
         onSuccess: @escaping () -> Void,
         onCancel: @escaping () -> Void
     ) {
+        self.providerID = providerID
         self.providerName = providerName
         self._store = ObservedObject(wrappedValue: store)
         self.onSuccess = onSuccess
@@ -60,7 +63,7 @@ struct DevicePairingView: View {
             handleMethodChange(newMethod)
         }
         .onDisappear {
-            store.cancelWhatsAppPairing()
+            store.cancelPairing(providerID)
         }
     }
 
@@ -97,7 +100,7 @@ struct DevicePairingView: View {
 
     @ViewBuilder
     private var contentView: some View {
-        switch store.whatsAppPairingState {
+        switch store.pairingState(providerID) {
         case .success:
             successView
         case .starting:
@@ -133,18 +136,18 @@ struct DevicePairingView: View {
 
     private var qrCodeView: some View {
         VStack(spacing: 16) {
-            if let qrData = store.whatsAppPairingState.qrCodeData {
+            if let qrData = store.pairingState(providerID).qrCodeData {
                 qrCodeDisplay(qrData)
-            } else if store.whatsAppPairingState.isLoading {
+            } else if store.pairingState(providerID).isLoading {
                 loadingView("Loading QR code...")
                     .frame(height: 200)
-            } else if let error = store.whatsAppPairingState.errorMessage {
-                errorView(error) { store.startWhatsAppQRPairing() }
+            } else if let error = store.pairingState(providerID).errorMessage {
+                errorView(error) { store.startQRPairing(providerID) }
                     .frame(height: 200)
             } else {
                 VStack(spacing: 12) {
                     Button("Start QR Pairing") {
-                        store.startWhatsAppQRPairing()
+                        store.startQRPairing(providerID)
                     }
                     .buttonStyle(.borderedProminent)
                 }
@@ -154,8 +157,8 @@ struct DevicePairingView: View {
         .frame(maxWidth: .infinity)
         .padding()
         .onAppear {
-            if selectedMethod == .qrCode && store.whatsAppPairingState == .idle {
-                store.startWhatsAppQRPairing()
+            if selectedMethod == .qrCode && store.pairingState(providerID) == .idle {
+                store.startQRPairing(providerID)
             }
         }
     }
@@ -200,9 +203,9 @@ struct DevicePairingView: View {
 
     private var phoneCodeView: some View {
         VStack(spacing: 16) {
-            if let code = store.whatsAppPairingState.pairingCode {
+            if let code = store.pairingState(providerID).pairingCode {
                 pairingCodeDisplay(code)
-            } else if store.whatsAppPairingState.isLoading {
+            } else if store.pairingState(providerID).isLoading {
                 loadingView("Requesting pairing code...")
             } else {
                 phoneNumberInput
@@ -228,7 +231,7 @@ struct DevicePairingView: View {
             phoneInstructionsView
 
             Button("Get New Code") {
-                store.resetWhatsAppPairingState()
+                store.resetPairingState(providerID)
             }
             .buttonStyle(.bordered)
         }
@@ -244,13 +247,13 @@ struct DevicePairingView: View {
                 .textFieldStyle(.roundedBorder)
                 .frame(maxWidth: 250)
 
-            Button(action: { store.startWhatsAppCodePairing(phoneNumber: phoneNumber) }) {
+            Button(action: { store.startCodePairing(providerID, phoneNumber: phoneNumber) }) {
                 Text("Get Pairing Code")
             }
             .buttonStyle(.borderedProminent)
             .disabled(phoneNumber.isEmpty)
 
-            if let error = store.whatsAppPairingState.errorMessage {
+            if let error = store.pairingState(providerID).errorMessage {
                 Text(error)
                     .font(.caption)
                     .foregroundColor(.red)
@@ -287,9 +290,9 @@ struct DevicePairingView: View {
 
     private var footerView: some View {
         HStack {
-            if !store.whatsAppPairingState.isSuccess {
+            if !store.pairingState(providerID).isSuccess {
                 Button("Cancel") {
-                    store.cancelWhatsAppPairing()
+                    store.cancelPairing(providerID)
                     onCancel()
                 }
                 .buttonStyle(.bordered)
@@ -297,7 +300,7 @@ struct DevicePairingView: View {
 
             Spacer()
 
-            if store.whatsAppPairingState.isSuccess {
+            if store.pairingState(providerID).isSuccess {
                 Button("Done") {
                     onSuccess()
                 }
@@ -393,9 +396,9 @@ struct DevicePairingView: View {
     // MARK: - Actions
 
     private func handleMethodChange(_ method: PairingMethod) {
-        store.resetWhatsAppPairingState()
+        store.resetPairingState(providerID)
         if method == .qrCode {
-            store.startWhatsAppQRPairing()
+            store.startQRPairing(providerID)
         }
     }
 
@@ -455,6 +458,7 @@ struct DevicePairingView: View {
 @available(macOS 15.0, *)
 #Preview {
     DevicePairingView(
+        providerID: .whatsapp,
         providerName: "WhatsApp",
         onSuccess: {},
         onCancel: {}

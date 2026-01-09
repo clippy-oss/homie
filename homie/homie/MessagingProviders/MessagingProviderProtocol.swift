@@ -30,6 +30,12 @@ protocol MessagingProviderProtocol: AnyObject {
     /// Whether the user is logged in / device is paired
     var isLoggedIn: Bool { get }
 
+    /// Publisher for login status changes
+    var isLoggedInPublisher: AnyPublisher<Bool, Never> { get }
+
+    /// Whether the provider's transport layer is ready for operations
+    var isReady: Bool { get }
+
     // MARK: - Lifecycle (Subprocess Management)
 
     /// Start the provider (spawn subprocess if needed, initialize connections)
@@ -61,6 +67,11 @@ protocol MessagingProviderProtocol: AnyObject {
     /// Logout and clear device pairing.
     /// After logout, re-pairing is required to use the provider again.
     func logout() async throws
+
+    /// Wait for code pairing to complete after the pairing code has been displayed.
+    /// Blocks until pairing succeeds or fails/times out.
+    /// - Returns: User ID if pairing succeeded, or throws an error
+    func awaitCodePairingCompletion() async throws -> String
 
     // MARK: - Repository (Read Operations)
 

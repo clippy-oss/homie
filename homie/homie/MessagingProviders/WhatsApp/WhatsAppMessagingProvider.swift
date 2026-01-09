@@ -24,16 +24,19 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
         $connectionStatus.eraseToAnyPublisher()
     }
 
+    var isLoggedInPublisher: AnyPublisher<Bool, Never> {
+        $isLoggedIn.eraseToAnyPublisher()
+    }
+
+    var isReady: Bool {
+        grpcClient?.isTransportReady ?? false
+    }
+
     // MARK: - Dependencies (Injected)
 
     private let processManager: WhatsAppProcessManager
     private(set) var grpcClient: WhatsAppGRPCClient?
     private let grpcConfiguration: WhatsAppGRPCConfiguration
-
-    /// Returns true if the gRPC client is initialized and ready
-    var grpcClientReady: Bool {
-        grpcClient?.isTransportReady ?? false
-    }
 
     // MARK: - Private State
 
@@ -261,6 +264,46 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
             Logger.error("Code pairing failed: \(error.localizedDescription)", module: "WhatsApp")
             throw MessagingProviderError.pairingFailed(error.localizedDescription)
         }
+    }
+
+    func awaitCodePairingCompletion() async throws -> String {
+        Logger.info("Awaiting code pairing completion", module: "WhatsApp")
+
+        guard let client = grpcClient else {
+            throw MessagingProviderError.notConnected
+        }
+
+        let eventStream = client.streamEvents(types: [.connectionStatus])
+
+        for try await protoEvent in eventStream {
+            if Task.isCancelled {
+                throw MessagingProviderError.operationCancelled
+            }
+
+            if case .connectionEvent(let connEvent) = protoEvent.payload {
+                let status = convertConnectionStatus(connEvent.status)
+                Logger.info("Code pairing: received connection status: \(status)", module: "WhatsApp")
+
+                await MainActor.run {
+                    self.connectionStatus = status
+                }
+
+                if status.isConnected {
+                    await MainActor.run {
+                        self.isLoggedIn = true
+                    }
+                    Logger.info("Code pairing completed successfully", module: "WhatsApp")
+                    return "" // User ID not available from connection event
+                }
+            }
+        }
+
+        // Stream ended - check if we're logged in
+        if isLoggedIn {
+            return ""
+        }
+
+        throw MessagingProviderError.pairingFailed("Pairing did not complete")
     }
 
     func logout() async throws {

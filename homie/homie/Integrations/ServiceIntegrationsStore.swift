@@ -73,30 +73,20 @@ final class ServiceIntegrationsStore: ObservableObject {
 
     private let messagingService: MessagingService
 
-    // MARK: - WhatsApp State
+    // MARK: - Provider State (Private Storage)
 
-    /// WhatsApp provider readiness (gRPC client ready)
-    @Published private(set) var isWhatsAppReady: Bool = false
+    private var providerReadiness: [MessagingProviderID: Bool] = [:]
+    private var providerConnectionStatus: [MessagingProviderID: MessagingConnectionStatus] = [:]
+    private var providerLoginStatus: [MessagingProviderID: Bool] = [:]
+    private var providerPairingState: [MessagingProviderID: IntegrationPairingState] = [:]
+    private var providerPairingTasks: [MessagingProviderID: Task<Void, Never>] = [:]
 
-    /// WhatsApp connection status
-    @Published private(set) var whatsAppConnectionStatus: MessagingConnectionStatus = .disconnected
-
-    /// WhatsApp login status
-    @Published private(set) var isWhatsAppLoggedIn: Bool = false
-
-    /// WhatsApp pairing workflow state
-    @Published private(set) var whatsAppPairingState: IntegrationPairingState = .idle
-
-    // MARK: - WhatsApp Convenience
-
-    var isWhatsAppConnected: Bool { whatsAppConnectionStatus.isConnected }
-    var canStartWhatsAppPairing: Bool { isWhatsAppReady && !isWhatsAppLoggedIn }
+    /// Triggers view updates when any provider state changes
+    @Published private var stateVersion: Int = 0
 
     // MARK: - Private State
 
     private var cancellables = Set<AnyCancellable>()
-    private var whatsAppQRPairingTask: Task<Void, Never>?
-    private var whatsAppCodePairingTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -108,66 +98,144 @@ final class ServiceIntegrationsStore: ObservableObject {
     // MARK: - Setup
 
     private func setupObservers() {
-        // Observe WhatsApp provider connection status
-        messagingService.whatsApp.$connectionStatus
+        // Setup observers for all providers via protocol interface
+        for providerID in MessagingProviderID.allCases {
+            setupProviderObservers(providerID)
+        }
+    }
+
+    private func setupProviderObservers(_ providerID: MessagingProviderID) {
+        let provider = messagingService.provider(providerID)
+
+        provider.connectionStatusPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] status in
-                self?.whatsAppConnectionStatus = status
+            .sink { [weak self] (status: MessagingConnectionStatus) in
+                self?.updateConnectionStatus(providerID, status)
             }
             .store(in: &cancellables)
 
-        // Observe WhatsApp provider login status
-        messagingService.whatsApp.$isLoggedIn
+        provider.isLoggedInPublisher
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] isLoggedIn in
-                self?.isWhatsAppLoggedIn = isLoggedIn
+            .sink { [weak self] (isLoggedIn: Bool) in
+                self?.updateLoginStatus(providerID, isLoggedIn)
             }
             .store(in: &cancellables)
     }
 
-    // MARK: - WhatsApp Lifecycle
+    // MARK: - Provider State Accessors
 
-    /// Ensure WhatsApp provider is started and ready
-    func ensureWhatsAppReady() async throws {
-        guard !isWhatsAppReady else { return }
+    func isReady(_ provider: MessagingProviderID) -> Bool {
+        providerReadiness[provider] ?? false
+    }
 
-        whatsAppPairingState = .starting
+    func connectionStatus(_ provider: MessagingProviderID) -> MessagingConnectionStatus {
+        providerConnectionStatus[provider] ?? .disconnected
+    }
+
+    func isLoggedIn(_ provider: MessagingProviderID) -> Bool {
+        providerLoginStatus[provider] ?? false
+    }
+
+    func pairingState(_ provider: MessagingProviderID) -> IntegrationPairingState {
+        providerPairingState[provider] ?? .idle
+    }
+
+    func isConnected(_ provider: MessagingProviderID) -> Bool {
+        connectionStatus(provider).isConnected
+    }
+
+    func canStartPairing(_ provider: MessagingProviderID) -> Bool {
+        isReady(provider) && !isLoggedIn(provider)
+    }
+
+    // MARK: - Private State Update Helpers
+
+    private func updateReadiness(_ provider: MessagingProviderID, _ value: Bool) {
+        providerReadiness[provider] = value
+        stateVersion += 1
+    }
+
+    private func updateConnectionStatus(_ provider: MessagingProviderID, _ value: MessagingConnectionStatus) {
+        providerConnectionStatus[provider] = value
+        stateVersion += 1
+    }
+
+    private func updateLoginStatus(_ provider: MessagingProviderID, _ value: Bool) {
+        providerLoginStatus[provider] = value
+        stateVersion += 1
+    }
+
+    private func updatePairingState(_ provider: MessagingProviderID, _ value: IntegrationPairingState) {
+        providerPairingState[provider] = value
+        stateVersion += 1
+    }
+
+    // MARK: - Provider Actions
+
+    /// Logout from a messaging provider
+    func logout(_ provider: MessagingProviderID) async throws {
+        try await messagingService.logout(provider)
+    }
+
+    /// Reset pairing state to idle
+    func resetPairingState(_ provider: MessagingProviderID) {
+        cancelPairing(provider)
+        updatePairingState(provider, .idle)
+    }
+
+    /// Cancel any ongoing pairing operation
+    func cancelPairing(_ provider: MessagingProviderID) {
+        providerPairingTasks[provider]?.cancel()
+        providerPairingTasks[provider] = nil
+        if pairingState(provider).isLoading {
+            updatePairingState(provider, .idle)
+        }
+    }
+
+    // MARK: - Service Lifecycle
+
+    /// Ensure a messaging provider is started and ready
+    func ensureServiceReady(_ provider: MessagingProviderID) async throws {
+        guard !isReady(provider) else { return }
+
+        updatePairingState(provider, .starting)
 
         do {
-            try await messagingService.ensureWhatsAppStarted()
-            isWhatsAppReady = messagingService.whatsApp.grpcClientReady
+            try await messagingService.ensureStarted(provider)
+            let ready = messagingService.isProviderReady(provider)
+            updateReadiness(provider, ready)
 
-            if isWhatsAppReady {
-                whatsAppPairingState = .idle
-                Logger.info("ServiceIntegrationsStore: WhatsApp ready", module: "Integrations")
+            if ready {
+                updatePairingState(provider, .idle)
+                Logger.info("ServiceIntegrationsStore: \(provider.rawValue) ready", module: "Integrations")
             } else {
-                whatsAppPairingState = .failed("WhatsApp bridge not ready")
+                updatePairingState(provider, .failed("\(provider.rawValue) bridge not ready"))
             }
         } catch {
-            isWhatsAppReady = false
-            whatsAppPairingState = .failed("Failed to start WhatsApp: \(error.localizedDescription)")
+            updateReadiness(provider, false)
+            updatePairingState(provider, .failed("Failed to start \(provider.rawValue): \(error.localizedDescription)"))
             throw error
         }
     }
 
-    // MARK: - WhatsApp QR Pairing
+    // MARK: - QR Pairing
 
-    /// Start WhatsApp QR code pairing flow
-    func startWhatsAppQRPairing() {
-        cancelWhatsAppPairing()
-        whatsAppPairingState = .waitingForQR
+    /// Start QR code pairing flow for a provider
+    func startQRPairing(_ provider: MessagingProviderID) {
+        cancelPairing(provider)
+        updatePairingState(provider, .waitingForQR)
 
-        whatsAppQRPairingTask = Task { @MainActor in
+        let task = Task { @MainActor in
             do {
-                // Ensure provider is ready
-                if !isWhatsAppReady {
-                    whatsAppPairingState = .starting
-                    try await ensureWhatsAppReady()
+                if !isReady(provider) {
+                    updatePairingState(provider, .starting)
+                    try await ensureServiceReady(provider)
                 }
 
-                whatsAppPairingState = .waitingForQR
+                updatePairingState(provider, .waitingForQR)
 
-                let stream = messagingService.whatsApp.startQRPairing()
+                let providerImpl = messagingService.provider(provider)
+                let stream = providerImpl.startQRPairing()
 
                 for try await event in stream {
                     if Task.isCancelled { break }
@@ -175,107 +243,68 @@ final class ServiceIntegrationsStore: ObservableObject {
                     switch event {
                     case .qrCode(let code):
                         Logger.info("Store: Setting QR state, code length: \(code.count)", module: "Integrations")
-                        whatsAppPairingState = .showingQR(code)
+                        updatePairingState(provider, .showingQR(code))
 
                     case .pairingCode:
-                        // Ignore in QR mode
                         break
 
                     case .timeout:
-                        whatsAppPairingState = .waitingForQR
-                        // Stream will provide new QR code
+                        updatePairingState(provider, .waitingForQR)
 
                     case .success(let userID, _):
-                        whatsAppPairingState = .success(userID: userID)
+                        updatePairingState(provider, .success(userID: userID))
                         return
 
                     case .error(let message):
-                        whatsAppPairingState = .failed(message)
+                        updatePairingState(provider, .failed(message))
                     }
                 }
 
-                // Stream ended - check if logged in
-                if !Task.isCancelled && messagingService.whatsApp.isLoggedIn {
-                    whatsAppPairingState = .success(userID: "")
+                // Check if pairing succeeded via the provider's login status
+                if !Task.isCancelled && providerImpl.isLoggedIn {
+                    updatePairingState(provider, .success(userID: ""))
                 }
             } catch {
                 if !Task.isCancelled {
-                    whatsAppPairingState = .failed(error.localizedDescription)
+                    updatePairingState(provider, .failed(error.localizedDescription))
                 }
             }
         }
+
+        providerPairingTasks[provider] = task
     }
 
-    // MARK: - WhatsApp Code Pairing
+    // MARK: - Code Pairing
 
-    /// Start WhatsApp phone number code pairing flow
-    func startWhatsAppCodePairing(phoneNumber: String) {
-        cancelWhatsAppPairing()
-        whatsAppPairingState = .waitingForCode
+    /// Start phone number code pairing flow for a provider
+    func startCodePairing(_ provider: MessagingProviderID, phoneNumber: String) {
+        cancelPairing(provider)
+        updatePairingState(provider, .waitingForCode)
 
-        whatsAppCodePairingTask = Task { @MainActor in
+        let task = Task { @MainActor in
             do {
-                // Ensure provider is ready
-                if !isWhatsAppReady {
-                    whatsAppPairingState = .starting
-                    try await ensureWhatsAppReady()
+                if !isReady(provider) {
+                    updatePairingState(provider, .starting)
+                    try await ensureServiceReady(provider)
                 }
 
-                whatsAppPairingState = .waitingForCode
+                updatePairingState(provider, .waitingForCode)
 
-                let code = try await messagingService.whatsApp.startCodePairing(phoneNumber: phoneNumber)
-                whatsAppPairingState = .showingCode(code)
+                let providerImpl = messagingService.provider(provider)
+                let code = try await providerImpl.startCodePairing(phoneNumber: phoneNumber)
+                updatePairingState(provider, .showingCode(code))
 
-                // Listen for pairing success
-                await listenForWhatsAppCodePairingSuccess()
+                // Wait for pairing to complete
+                let userID = try await providerImpl.awaitCodePairingCompletion()
+                updatePairingState(provider, .success(userID: userID))
 
             } catch {
                 if !Task.isCancelled {
-                    whatsAppPairingState = .failed(error.localizedDescription)
-                }
-            }
-        }
-    }
-
-    /// Listen for connection status events after code is displayed
-    private func listenForWhatsAppCodePairingSuccess() async {
-        let eventStream = messagingService.whatsApp.subscribeToEvents(types: [.connectionStatus])
-
-        for await event in eventStream {
-            if Task.isCancelled { break }
-
-            if case .connectionStatus(let status) = event {
-                Logger.info("WhatsApp code pairing: received connection status: \(status)", module: "Integrations")
-                if status.isConnected && messagingService.whatsApp.isLoggedIn {
-                    whatsAppPairingState = .success(userID: "")
-                    return
+                    updatePairingState(provider, .failed(error.localizedDescription))
                 }
             }
         }
 
-        // Stream ended - check final status
-        if !Task.isCancelled && messagingService.whatsApp.isLoggedIn {
-            whatsAppPairingState = .success(userID: "")
-        }
-    }
-
-    // MARK: - WhatsApp Cancellation
-
-    /// Cancel any ongoing WhatsApp pairing operation
-    func cancelWhatsAppPairing() {
-        whatsAppQRPairingTask?.cancel()
-        whatsAppQRPairingTask = nil
-        whatsAppCodePairingTask?.cancel()
-        whatsAppCodePairingTask = nil
-
-        if whatsAppPairingState.isLoading {
-            whatsAppPairingState = .idle
-        }
-    }
-
-    /// Reset WhatsApp pairing state to idle
-    func resetWhatsAppPairingState() {
-        cancelWhatsAppPairing()
-        whatsAppPairingState = .idle
+        providerPairingTasks[provider] = task
     }
 }

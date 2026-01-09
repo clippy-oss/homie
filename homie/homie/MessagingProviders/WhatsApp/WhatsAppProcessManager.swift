@@ -323,10 +323,26 @@ final class WhatsAppProcessManager {
             let level = logLevelFromBridge(entry.level)
             let moduleName = [entry.module, entry.sub].compactMap { $0 }.joined(separator: "/")
             let prefix = moduleName.isEmpty ? "" : "[\(moduleName)] "
-            Logger.shared.log(level: level, message: "\(prefix)\(entry.message)", module: "WhatsApp-Bridge")
+            logWithLevel(level, message: "\(prefix)\(entry.message)")
         } else {
             // Fallback for non-JSON output (plain text, panics, etc.)
-            Logger.shared.log(level: defaultLevel, message: line, module: "WhatsApp-Bridge")
+            logWithLevel(defaultLevel, message: line)
+        }
+    }
+
+    /// Log a message at the specified level using Logger's static methods
+    private func logWithLevel(_ level: LogLevel, message: String) {
+        switch level {
+        case .debug:
+            Logger.debug(message, module: "WhatsApp-Bridge")
+        case .info:
+            Logger.info(message, module: "WhatsApp-Bridge")
+        case .warning:
+            Logger.warning(message, module: "WhatsApp-Bridge")
+        case .error:
+            Logger.error(message, module: "WhatsApp-Bridge")
+        case .critical:
+            Logger.critical(message, module: "WhatsApp-Bridge")
         }
     }
 

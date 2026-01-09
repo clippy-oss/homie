@@ -8,6 +8,13 @@
 
 import Foundation
 
+// MARK: - Provider Identification
+
+/// Identifies a messaging provider
+enum MessagingProviderID: String, CaseIterable {
+    case whatsapp
+}
+
 // MARK: - Connection Status
 
 /// Represents the current connection state of a messaging provider.

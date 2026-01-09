@@ -124,14 +124,16 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
             Logger.info("Main window hidden - only Notion Home window visible", module: "App")
         }
         
-        // Start WhatsApp bridge subprocess
+        // Start all messaging provider bridges
         if #available(macOS 15.0, *) {
-            Task {
-                do {
-                    try await MessagingService.shared.ensureWhatsAppStarted()
-                    Logger.info("WhatsApp bridge started successfully", module: "App")
-                } catch {
-                    Logger.error("Failed to start WhatsApp bridge: \(error.localizedDescription)", module: "App")
+            Task { @MainActor in
+                for providerID in MessagingService.shared.availableProviders {
+                    do {
+                        try await MessagingService.shared.ensureStarted(providerID)
+                        Logger.info("Messaging provider \(providerID.rawValue) started successfully", module: "App")
+                    } catch {
+                        Logger.error("Failed to start \(providerID.rawValue) provider: \(error.localizedDescription)", module: "App")
+                    }
                 }
             }
         }
@@ -229,13 +231,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
         // Clean up all shortcuts
         ShortcutManager.shared.unregisterAllShortcuts()
 
-        // Stop WhatsApp bridge subprocess
+        // Stop all messaging provider bridges
         // Note: Using DispatchSemaphore to ensure async work completes before termination
         if #available(macOS 15.0, *) {
             let semaphore = DispatchSemaphore(value: 0)
             Task {
                 await MessagingService.shared.stopAll()
-                Logger.info("WhatsApp bridge stopped", module: "App")
+                Logger.info("All messaging providers stopped", module: "App")
                 semaphore.signal()
             }
             _ = semaphore.wait(timeout: .now() + 5.0)

@@ -3,16 +3,17 @@
 //  homie
 //
 //  Central service that owns and manages all messaging providers.
-//  Provides unified access to different messaging platforms.
+//  Provides unified, provider-agnostic access to different messaging platforms.
 //
 
 import Foundation
-import Combine
 
-/// Central service for managing messaging providers
+/// Central service for managing messaging providers.
+/// Handles lifecycle coordination (start/stop) - not observable state.
+/// Observable state is managed by ServiceIntegrationsStore.
 @available(macOS 15.0, *)
 @MainActor
-final class MessagingService: ObservableObject {
+final class MessagingService {
 
     // MARK: - Shared Instance
 
@@ -21,97 +22,110 @@ final class MessagingService: ObservableObject {
 
     // MARK: - Providers
 
-    /// WhatsApp messaging provider
-    let whatsApp: WhatsAppMessagingProvider
-
-    // Future: Add more providers
-    // let telegram: TelegramMessagingProvider
-
-    // MARK: - Published State
-
-    @Published private(set) var isInitialized = false
+    private let providers: [MessagingProviderID: MessagingProviderProtocol]
 
     // MARK: - Private State
 
-    private var initializationTask: Task<Void, Error>?
-    private var cancellables = Set<AnyCancellable>()
+    private var initializationTasks: [MessagingProviderID: Task<Void, Error>] = [:]
+    private var initializedProviders: Set<MessagingProviderID> = []
 
     // MARK: - Initialization
 
-    /// Initialize with all providers (dependency injection)
-    init(whatsApp: WhatsAppMessagingProvider) {
-        self.whatsApp = whatsApp
-        Logger.info("MessagingService initialized", module: "Messaging")
+    /// Initialize with a dictionary of providers (dependency injection)
+    init(providers: [MessagingProviderID: MessagingProviderProtocol]) {
+        self.providers = providers
+        Logger.info("MessagingService initialized with \(providers.count) provider(s)", module: "Messaging")
     }
 
     /// Convenience initializer with default providers
     convenience init() {
-        self.init(whatsApp: WhatsAppMessagingProvider())
+        self.init(providers: [
+            .whatsapp: WhatsAppMessagingProvider()
+        ])
     }
 
     // MARK: - Provider Access
 
-    /// Get a provider by ID
-    func provider(for id: String) -> MessagingProviderProtocol? {
-        switch id {
-        case "whatsapp":
-            return whatsApp
-        default:
-            return nil
+    /// Get the underlying provider for a given ID (for observation/advanced use)
+    func provider(_ id: MessagingProviderID) -> MessagingProviderProtocol {
+        guard let provider = providers[id] else {
+            fatalError("MessagingService: Provider \(id.rawValue) not registered")
         }
+        return provider
+    }
+
+    /// Check if a provider's transport is ready
+    func isProviderReady(_ id: MessagingProviderID) -> Bool {
+        providers[id]?.isReady ?? false
     }
 
     /// All available provider IDs
-    var availableProviderIDs: [String] {
-        ["whatsapp"]
+    var availableProviders: [MessagingProviderID] {
+        Array(providers.keys)
     }
 
     // MARK: - Lifecycle
 
-    /// Ensure WhatsApp provider is started (lazy initialization)
-    /// Call this before any WhatsApp operations
-    func ensureWhatsAppStarted() async throws {
+    /// Ensure a provider is started (lazy initialization)
+    func ensureStarted(_ id: MessagingProviderID) async throws {
         // Already started?
-        if whatsApp.grpcClientReady {
+        if isProviderReady(id) {
             return
         }
 
         // Already initializing?
-        if let task = initializationTask {
+        if let task = initializationTasks[id] {
             try await task.value
             return
         }
 
         // Start initialization
         let task = Task {
-            Logger.info("MessagingService: Starting WhatsApp provider...", module: "Messaging")
-            try await whatsApp.start()
-            Logger.info("MessagingService: WhatsApp provider started", module: "Messaging")
+            Logger.info("MessagingService: Starting \(id.rawValue) provider...", module: "Messaging")
+            try await provider(id).start()
+            Logger.info("MessagingService: \(id.rawValue) provider started", module: "Messaging")
         }
 
-        initializationTask = task
+        initializationTasks[id] = task
 
         do {
             try await task.value
-            isInitialized = true
+            initializedProviders.insert(id)
         } catch {
-            initializationTask = nil
+            initializationTasks[id] = nil
             throw error
         }
     }
 
+    /// Stop a specific provider
+    func stop(_ id: MessagingProviderID) async {
+        initializationTasks[id]?.cancel()
+        initializationTasks[id] = nil
+
+        await providers[id]?.stop()
+
+        initializedProviders.remove(id)
+        Logger.info("MessagingService: \(id.rawValue) provider stopped", module: "Messaging")
+    }
+
     /// Stop all providers
     func stopAll() async {
-        initializationTask?.cancel()
-        initializationTask = nil
-
-        await whatsApp.stop()
-        isInitialized = false
-
+        for id in providers.keys {
+            await stop(id)
+        }
         Logger.info("MessagingService: All providers stopped", module: "Messaging")
     }
 
+    // MARK: - Provider Actions
+
+    /// Logout from a messaging provider
+    func logout(_ id: MessagingProviderID) async throws {
+        try await provider(id).logout()
+    }
+
     deinit {
-        initializationTask?.cancel()
+        for task in initializationTasks.values {
+            task.cancel()
+        }
     }
 }
