@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	Mode         string
 	DatabasePath string
 	MediaPath    string
 	GRPCAddress  string
@@ -19,6 +20,7 @@ func Load() *Config {
 
 	cfg := &Config{}
 
+	flag.StringVar(&cfg.Mode, "mode", "server", "Run mode: server, interactive, or headless")
 	flag.StringVar(&cfg.DatabasePath, "db", getEnv("WA_DATABASE_PATH", filepath.Join(dataDir, "whatsapp.db")), "Database file path")
 	flag.StringVar(&cfg.MediaPath, "media", getEnv("WA_MEDIA_PATH", filepath.Join(dataDir, "media")), "Media download path")
 	flag.StringVar(&cfg.GRPCAddress, "grpc-port", getEnv("WA_GRPC_ADDRESS", "127.0.0.1:50051"), "gRPC server address")

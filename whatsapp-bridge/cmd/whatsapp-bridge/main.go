@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log"
 	"os"
@@ -36,16 +35,12 @@ const (
 )
 
 func main() {
-	// Parse command-line flags
-	mode := flag.String("mode", "server", "Run mode: server, interactive, or headless")
-	flag.Parse()
-
-	// Load configuration
+	// Load configuration (also handles flag parsing)
 	cfg := config.Load()
 
 	// Initialize logger for whatsmeow (quiet for CLI modes)
 	var waLogger waLog.Logger
-	if RunMode(*mode) == RunModeServer {
+	if RunMode(cfg.Mode) == RunModeServer {
 		waLogger = waLog.Stdout("WhatsApp", "INFO", true)
 	} else {
 		waLogger = waLog.Stdout("WhatsApp", "ERROR", true)
@@ -88,7 +83,7 @@ func main() {
 	// Initialize message service
 	msgSvc := service.NewMessageService(msgRepo, chatRepo, waSvc)
 
-	switch RunMode(*mode) {
+	switch RunMode(cfg.Mode) {
 	case RunModeInteractive:
 		runInteractiveMode(ctx, waSvc, msgSvc, device)
 	case RunModeHeadless:

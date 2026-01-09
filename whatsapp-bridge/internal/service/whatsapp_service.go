@@ -310,6 +310,19 @@ func (s *WhatsAppService) handleEvent(evt interface{}) {
 			EventTime: time.Now(),
 		})
 
+	case *events.LoggedOut:
+		s.logger.Warnf("Device logged out remotely (OnConnect: %v, Reason: %v)", v.OnConnect, v.Reason)
+		s.mu.Lock()
+		s.connected = false
+		// Note: whatsmeow automatically calls Store.Delete() which clears device.ID
+		s.client = nil
+		s.mu.Unlock()
+		s.eventBus.Publish(domain.ConnectionStatusEvent{
+			Connected: false,
+			Reason:    "logged_out",
+			EventTime: time.Now(),
+		})
+
 	case *events.Message:
 		s.handleMessage(v)
 

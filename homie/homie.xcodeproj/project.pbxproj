@@ -369,7 +369,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# Ty#!/bin/bash\nset -e\n\nBRIDGE_DIR=\"${PROJECT_DIR}/../whatsapp-bridge\"\nBINARY_NAME=\"whatsapp-bridge\"\nOUTPUT_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources\"\n\n# Check if Go is installed\nif ! command -v go &> /dev/null; then\n    echo \"warning: Go not installed, skipping whatsapp-bridge build\"\n    exit 0\nfi\n\n# Build the binary\necho \"Building whatsapp-bridge...\"\ncd \"$BRIDGE_DIR\"\nCGO_ENABLED=1 go build -o \"bin/$BINARY_NAME\" ./cmd/whatsapp-bridge\n\n# Copy to app bundle\necho \"Copying whatsapp-bridge to app bundle...\"\nmkdir -p \"$OUTPUT_DIR\"\ncp \"bin/$BINARY_NAME\" \"$OUTPUT_DIR/\"\n\necho \"whatsapp-bridge installed successfully\"\npe a script or drag a script file from your workspace to insert its path.\n";
+			shellScript = "# Ty#!/bin/bash\nset -e\n\nBRIDGE_DIR=\"${PROJECT_DIR}/../whatsapp-bridge\"\nBINARY_NAME=\"whatsapp-bridge\"\nOUTPUT_DIR=\"${BUILT_PRODUCTS_DIR}/${CONTENTS_FOLDER_PATH}/Resources\"\nGO_BIN=\"/opt/homebrew/bin/go\"\n\n# Check if Go is installed\nif ! command -v $GO_BIN &> /dev/null; then\n    echo \"warning: Go not installed, skipping whatsapp-bridge build\"\n    exit 0\nfi\n\n# Build the binary\necho \"Building whatsapp-bridge...\"\ncd \"$BRIDGE_DIR\"\nCGO_ENABLED=1 $GO_BIN build -o \"bin/$BINARY_NAME\" ./cmd/whatsapp-bridge\n\n# Copy to app bundle\necho \"Copying whatsapp-bridge to app bundle...\"\nmkdir -p \"$OUTPUT_DIR\"\ncp \"bin/$BINARY_NAME\" \"$OUTPUT_DIR/\"\n\necho \"whatsapp-bridge installed successfully\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -449,7 +449,7 @@
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)";
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -513,7 +513,7 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				FRAMEWORK_SEARCH_PATHS = "$(SRCROOT)";
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
