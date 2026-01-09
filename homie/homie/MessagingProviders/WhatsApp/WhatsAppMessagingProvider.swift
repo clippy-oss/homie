@@ -488,6 +488,17 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
                         }
 
                         if let event = self.convertEvent(protoEvent) {
+                            // Update internal state for connection status events
+                            if case .connectionStatus(let status) = event {
+                                await MainActor.run {
+                                    self.connectionStatus = status
+                                    if status.isConnected {
+                                        self.isLoggedIn = true
+                                    } else if case .disconnected = status {
+                                        self.isLoggedIn = false
+                                    }
+                                }
+                            }
                             continuation.yield(event)
                         }
                     }
