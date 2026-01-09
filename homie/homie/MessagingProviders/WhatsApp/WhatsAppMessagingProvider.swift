@@ -27,8 +27,13 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
     // MARK: - Dependencies (Injected)
 
     private let processManager: WhatsAppProcessManager
-    private var grpcClient: WhatsAppGRPCClient?
+    private(set) var grpcClient: WhatsAppGRPCClient?
     private let grpcConfiguration: WhatsAppGRPCConfiguration
+
+    /// Returns true if the gRPC client is initialized and ready
+    var grpcClientReady: Bool {
+        grpcClient?.isTransportReady ?? false
+    }
 
     // MARK: - Private State
 
@@ -154,12 +159,19 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
 
     func startQRPairing() -> AsyncThrowingStream<PairingEvent, Error> {
         Logger.info("Starting QR pairing", module: "WhatsApp")
-        connectionStatus = .pairing
 
         return AsyncThrowingStream { continuation in
             Task { [weak self] in
                 guard let self = self else {
                     continuation.finish(throwing: MessagingProviderError.notConnected)
+                    return
+                }
+
+                // Check if already logged in - QR pairing is not available
+                if self.isLoggedIn {
+                    Logger.info("QR pairing: already logged in, cannot pair again", module: "WhatsApp")
+                    continuation.yield(.error("Already logged in. Please disconnect first to pair a new device."))
+                    continuation.finish()
                     return
                 }
 
@@ -175,6 +187,10 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
                     continuation.yield(.error("WhatsApp bridge not ready. Please try again."))
                     continuation.finish()
                     return
+                }
+
+                await MainActor.run {
+                    self.connectionStatus = .pairing
                 }
 
                 do {
@@ -207,7 +223,12 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
 
     func startCodePairing(phoneNumber: String) async throws -> String {
         Logger.info("Starting code pairing for phone: \(phoneNumber.prefix(4))****", module: "WhatsApp")
-        connectionStatus = .pairing
+
+        // Check if already logged in
+        if isLoggedIn {
+            Logger.info("Code pairing: already logged in, cannot pair again", module: "WhatsApp")
+            throw MessagingProviderError.pairingFailed("Already logged in. Please disconnect first to pair a new device.")
+        }
 
         guard let client = grpcClient else {
             Logger.error("Code pairing: grpcClient is nil", module: "WhatsApp")
@@ -219,6 +240,8 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
             Logger.error("Code pairing: gRPC transport not ready", module: "WhatsApp")
             throw MessagingProviderError.connectionFailed("WhatsApp bridge not ready")
         }
+
+        connectionStatus = .pairing
 
         do {
             let response = try await client.pairWithCode(phoneNumber: phoneNumber)

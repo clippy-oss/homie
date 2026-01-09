@@ -125,12 +125,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
         }
         
         // Start WhatsApp bridge subprocess
-        Task {
-            do {
-                try await MCPManager.shared.whatsAppProvider.start()
-                Logger.info("WhatsApp bridge started successfully", module: "App")
-            } catch {
-                Logger.error("Failed to start WhatsApp bridge: \(error.localizedDescription)", module: "App")
+        if #available(macOS 15.0, *) {
+            Task {
+                do {
+                    try await MessagingService.shared.ensureWhatsAppStarted()
+                    Logger.info("WhatsApp bridge started successfully", module: "App")
+                } catch {
+                    Logger.error("Failed to start WhatsApp bridge: \(error.localizedDescription)", module: "App")
+                }
             }
         }
 
@@ -229,13 +231,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
 
         // Stop WhatsApp bridge subprocess
         // Note: Using DispatchSemaphore to ensure async work completes before termination
-        let semaphore = DispatchSemaphore(value: 0)
-        Task {
-            await MCPManager.shared.whatsAppProvider.stop()
-            Logger.info("WhatsApp bridge stopped", module: "App")
-            semaphore.signal()
+        if #available(macOS 15.0, *) {
+            let semaphore = DispatchSemaphore(value: 0)
+            Task {
+                await MessagingService.shared.stopAll()
+                Logger.info("WhatsApp bridge stopped", module: "App")
+                semaphore.signal()
+            }
+            _ = semaphore.wait(timeout: .now() + 5.0)
         }
-        _ = semaphore.wait(timeout: .now() + 5.0)
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {

@@ -440,7 +440,12 @@ struct NotionHomeView: View {
                     } else if selectedSection == "Personalize" && entitlementStore.canUsePersonalize {
                         PersonalizeView()
                     } else if selectedSection == "Integrations" && entitlementStore.canUseMCPIntegrations {
-                        MCPSettingsView()
+                        if #available(macOS 15.0, *) {
+                            IntegrationsView()
+                        } else {
+                            Text("Integrations require macOS 15.0 or later")
+                                .foregroundColor(.secondary)
+                        }
                     } else if selectedSection == "Keyboard Shortcuts" {
                         KeyboardShortcutsView()
                     } else if selectedSection == "Preferences" {

@@ -144,82 +144,7 @@ struct MCPToolResult {
     }
 }
 
-// MARK: - MCP Server Configuration
-
-/// Configuration for an MCP server connection
-struct MCPServerConfig: Codable, Identifiable, Equatable {
-    let id: String
-    let name: String
-    let description: String
-    let iconName: String  // SF Symbol name
-    let authType: MCPAuthType
-    let authURL: String
-    let tokenURL: String
-    let scopes: [String]
-    let redirectPath: String  // e.g., "oauth/linear"
-}
-
-/// Connection status for an MCP server
-enum MCPConnectionStatus: Equatable {
-    case disconnected
-    case connecting
-    case pairing       // Waiting for device pairing (QR/code)
-    case connected(email: String?)
-    case error(String)
-
-    var isConnected: Bool {
-        if case .connected = self { return true }
-        return false
-    }
-
-    var isPairing: Bool {
-        if case .pairing = self { return true }
-        return false
-    }
-}
-
-// MARK: - Auth Type
-
-/// Authentication type for MCP servers
-enum MCPAuthType: String, Codable {
-    case oauth           // Linear, Google Calendar - uses OAuth flow
-    case devicePairing   // WhatsApp, Telegram, Signal - uses device pairing
-}
-
-// MARK: - OAuth Types
-
-/// OAuth token response from token exchange
-struct MCPOAuthTokenResponse: Codable {
-    let accessToken: String
-    let refreshToken: String?
-    let tokenType: String
-    let expiresIn: Int?
-    let scope: String?
-    
-    enum CodingKeys: String, CodingKey {
-        case accessToken = "access_token"
-        case refreshToken = "refresh_token"
-        case tokenType = "token_type"
-        case expiresIn = "expires_in"
-        case scope
-    }
-}
-
-/// Stored OAuth credentials for an MCP server
-struct MCPStoredCredentials: Codable {
-    let serverID: String
-    let accessToken: String
-    let refreshToken: String?
-    let expiresAt: Date?
-    let userEmail: String?
-    
-    var isExpired: Bool {
-        guard let expiresAt = expiresAt else { return false }
-        return Date() >= expiresAt
-    }
-}
-
-// MARK: - Error Types
+// MARK: - MCP-Specific Error Types
 
 enum MCPError: LocalizedError {
     case notConnected(serverID: String)
@@ -229,7 +154,7 @@ enum MCPError: LocalizedError {
     case executionFailed(String)
     case networkError(Error)
     case invalidResponse
-    
+
     var errorDescription: String? {
         switch self {
         case .notConnected(let serverID):
@@ -248,48 +173,5 @@ enum MCPError: LocalizedError {
             return "Invalid response from server"
         }
     }
-}
-
-// MARK: - Predefined Server Configurations
-
-extension MCPServerConfig {
-    static let linear = MCPServerConfig(
-        id: "linear",
-        name: "Linear",
-        description: "Manage issues and projects",
-        iconName: "square.stack.3d.up",
-        authType: .oauth,
-        authURL: "https://linear.app/oauth/authorize",
-        tokenURL: "https://api.linear.app/oauth/token",
-        scopes: ["read", "write"],
-        redirectPath: "oauth/linear"
-    )
-
-    static let googleCalendar = MCPServerConfig(
-        id: "google_calendar",
-        name: "Google Calendar",
-        description: "View and create calendar events",
-        iconName: "calendar",
-        authType: .oauth,
-        authURL: "https://accounts.google.com/o/oauth2/v2/auth",
-        tokenURL: "https://oauth2.googleapis.com/token",
-        scopes: ["https://www.googleapis.com/auth/calendar.events"],
-        redirectPath: "oauth/google"
-    )
-
-    static let whatsapp = MCPServerConfig(
-        id: "whatsapp",
-        name: "WhatsApp",
-        description: "Send and receive WhatsApp messages",
-        iconName: "message.fill",
-        authType: .devicePairing,
-        authURL: "",
-        tokenURL: "",
-        scopes: [],
-        redirectPath: ""
-    )
-
-    /// All available MCP server configurations
-    static let allServers: [MCPServerConfig] = [.linear, .googleCalendar, .whatsapp]
 }
 

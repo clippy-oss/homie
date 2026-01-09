@@ -168,21 +168,46 @@ final class WhatsAppGRPCClient: Sendable {
         AsyncThrowingStream { continuation in
             Task {
                 do {
-                    Logger.info("gRPC: calling getPairingQR...", module: "WhatsApp")
+                    Logger.info("gRPC: calling getPairingQR - sending request to server...", module: "WhatsApp")
                     let request = Whatsapp_V1_GetPairingQRRequest()
-                    try await self.serviceClient.getPairingQR(request) { response in
-                        Logger.info("gRPC: getPairingQR response received, waiting for messages...", module: "WhatsApp")
+
+                    let result = try await self.serviceClient.getPairingQR(request) { response in
+                        Logger.info("gRPC: getPairingQR - server accepted request, stream opened", module: "WhatsApp")
+
+                        // Check for immediate error in response metadata
+                        if case .failure(let error) = response.accepted {
+                            Logger.error("gRPC: getPairingQR - server rejected request: \(error)", module: "WhatsApp")
+                            continuation.finish(throwing: WhatsAppGRPCError.rpcFailed(String(describing: error)))
+                            return
+                        }
+
+                        Logger.info("gRPC: getPairingQR - waiting for QR code events...", module: "WhatsApp")
+                        var eventCount = 0
                         for try await event in response.messages {
-                            Logger.info("gRPC: received pairing event", module: "WhatsApp")
+                            eventCount += 1
+                            let eventType: String
+                            switch event.payload {
+                            case .qrCode: eventType = "qrCode"
+                            case .timeout: eventType = "timeout"
+                            case .success: eventType = "success"
+                            case .error(let msg): eventType = "error(\(msg))"
+                            case .none: eventType = "none"
+                            }
+                            Logger.info("gRPC: getPairingQR - received event #\(eventCount): \(eventType)", module: "WhatsApp")
                             continuation.yield(event)
                         }
-                        Logger.info("gRPC: getPairingQR stream finished", module: "WhatsApp")
+                        Logger.info("gRPC: getPairingQR - stream ended after \(eventCount) events", module: "WhatsApp")
                         continuation.finish()
                     }
-                    Logger.info("gRPC: getPairingQR call completed", module: "WhatsApp")
+
+                    Logger.info("gRPC: getPairingQR - call completed with result: \(type(of: result))", module: "WhatsApp")
                 } catch {
-                    Logger.error("gRPC: getPairingQR error: \(error)", module: "WhatsApp")
-                    continuation.finish(throwing: WhatsAppGRPCError.rpcFailed(error.localizedDescription))
+                    Logger.error("gRPC: getPairingQR - RPC failed: \(error)", module: "WhatsApp")
+
+                    // Parse the error to provide a user-friendly message
+                    let userMessage = Self.parseGRPCError(error)
+                    Logger.error("gRPC: getPairingQR - user message: \(userMessage)", module: "WhatsApp")
+                    continuation.finish(throwing: WhatsAppGRPCError.rpcFailed(userMessage))
                 }
             }
         }
@@ -200,7 +225,8 @@ final class WhatsAppGRPCClient: Sendable {
             return response
         } catch {
             Logger.error("gRPC: pairWithCode failed: \(error)", module: "WhatsApp")
-            throw error
+            let userMessage = Self.parseGRPCError(error)
+            throw WhatsAppGRPCError.rpcFailed(userMessage)
         }
     }
 
@@ -309,5 +335,103 @@ final class WhatsAppGRPCClient: Sendable {
         jid.user = user
         jid.server = server
         return jid
+    }
+
+    // MARK: - Error Parsing
+
+    /// Converts gRPC errors into user-friendly messages
+    static func parseGRPCError(_ error: Error) -> String {
+        let errorString = String(describing: error)
+
+        // Check for known error patterns and provide user-friendly messages
+
+        // QR Channel errors - these occur when there's a stored device credential
+        if errorString.contains("GetQRChannel must be called before connecting") {
+            return "A stale WhatsApp session exists locally. Please restart the app to clear it, or delete the WhatsApp database files."
+        }
+
+        if errorString.contains("already logged in") {
+            return "A stale WhatsApp session exists locally. Please restart the app to clear it, or delete the WhatsApp database files."
+        }
+
+        if errorString.contains("already connected") || errorString.contains("AlreadyConnected") {
+            return "WhatsApp is already connected. Disconnect first to pair a new device."
+        }
+
+        // Connection errors
+        if errorString.contains("connection refused") || errorString.contains("ECONNREFUSED") {
+            return "Unable to connect to WhatsApp bridge. Please ensure the service is running."
+        }
+
+        if errorString.contains("timeout") || errorString.contains("deadline exceeded") {
+            return "Connection timed out. Please check your network and try again."
+        }
+
+        if errorString.contains("unavailable") || errorString.contains("UNAVAILABLE") {
+            return "WhatsApp service is temporarily unavailable. Please try again later."
+        }
+
+        // Authentication errors
+        if errorString.contains("not logged in") || errorString.contains("NotLoggedIn") {
+            return "Not logged in to WhatsApp. Please complete the pairing process first."
+        }
+
+        if errorString.contains("session expired") || errorString.contains("logged out") {
+            return "Your WhatsApp session has expired. Please pair your device again."
+        }
+
+        // Pairing errors
+        if errorString.contains("invalid phone number") || errorString.contains("InvalidPhoneNumber") {
+            return "Invalid phone number format. Please enter your phone number with country code (e.g., +1234567890)."
+        }
+
+        if errorString.contains("rate limit") || errorString.contains("too many requests") {
+            return "Too many pairing attempts. Please wait a few minutes before trying again."
+        }
+
+        // gRPC status code patterns
+        if errorString.contains("RPCError error 1") || errorString.contains("CANCELLED") {
+            return "Request was cancelled. Please try again."
+        }
+
+        if errorString.contains("RPCError error 2") || errorString.contains("UNKNOWN") {
+            return "An unexpected error occurred. Please try again."
+        }
+
+        if errorString.contains("RPCError error 9") || errorString.contains("FAILED_PRECONDITION") ||
+           errorString.contains("FailedPrecondition") {
+            // Extract the actual message if available
+            if let range = errorString.range(of: "failed to get QR channel:") {
+                let message = errorString[range.upperBound...].trimmingCharacters(in: .whitespaces)
+                if message.contains("must be called before connecting") {
+                    return "Device is already connected. Please disconnect first before pairing a new device."
+                }
+            }
+            return "Operation cannot be performed in the current state. Please disconnect and try again."
+        }
+
+        if errorString.contains("RPCError error 14") || errorString.contains("UNAVAILABLE") {
+            return "WhatsApp bridge service is not available. Please ensure it's running."
+        }
+
+        // Network errors
+        if errorString.contains("no route to host") || errorString.contains("network unreachable") {
+            return "Network error. Please check your internet connection."
+        }
+
+        // Default: return a cleaned up version of the error
+        // Try to extract meaningful message from the error
+        if let detailRange = errorString.range(of: "message: \"") {
+            let afterMessage = errorString[detailRange.upperBound...]
+            if let endQuote = afterMessage.firstIndex(of: "\"") {
+                let extractedMessage = String(afterMessage[..<endQuote])
+                if !extractedMessage.isEmpty {
+                    return extractedMessage
+                }
+            }
+        }
+
+        // Fallback: provide a generic message with technical details for debugging
+        return "Connection error occurred. Please try again. (Technical: \(errorString.prefix(100)))"
     }
 }

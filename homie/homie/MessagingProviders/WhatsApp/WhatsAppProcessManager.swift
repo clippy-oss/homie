@@ -228,10 +228,13 @@ final class WhatsAppProcessManager {
                 let data = handle.availableData
 
                 guard !data.isEmpty else {
-                    // EOF - process may have exited
-                    if let exitCode = self?.process?.terminationStatus, exitCode != 0 {
-                        timeoutWorkItem.cancel()
-                        safeResume(with: .failure(WhatsAppProcessError.unexpectedExit(exitCode)))
+                    // EOF - check if process has actually exited before accessing terminationStatus
+                    if let process = self?.process, !process.isRunning {
+                        let exitCode = process.terminationStatus
+                        if exitCode != 0 {
+                            timeoutWorkItem.cancel()
+                            safeResume(with: .failure(WhatsAppProcessError.unexpectedExit(exitCode)))
+                        }
                     }
                     return
                 }
