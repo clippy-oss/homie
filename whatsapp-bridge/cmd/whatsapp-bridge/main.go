@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +18,7 @@ import (
 	"github.com/clippy-oss/homie/whatsapp-bridge/internal/cli"
 	"github.com/clippy-oss/homie/whatsapp-bridge/internal/config"
 	"github.com/clippy-oss/homie/whatsapp-bridge/internal/domain"
+	"github.com/clippy-oss/homie/whatsapp-bridge/internal/logger"
 	"github.com/clippy-oss/homie/whatsapp-bridge/internal/repository"
 	"github.com/clippy-oss/homie/whatsapp-bridge/internal/service"
 	grpcTransport "github.com/clippy-oss/homie/whatsapp-bridge/internal/transport/grpc"
@@ -38,25 +38,28 @@ func main() {
 	// Load configuration (also handles flag parsing)
 	cfg := config.Load()
 
-	// Initialize logger for whatsmeow (quiet for CLI modes)
-	var waLogger waLog.Logger
-	if RunMode(cfg.Mode) == RunModeServer {
-		waLogger = waLog.Stdout("WhatsApp", "INFO", true)
-	} else {
-		waLogger = waLog.Stdout("WhatsApp", "ERROR", true)
+	// Initialize structured logger
+	logLevel := cfg.LogLevel
+	if RunMode(cfg.Mode) != RunModeServer {
+		logLevel = "error" // Quiet for CLI modes
 	}
+	logger.Init(logLevel)
+	log := logger.Module("main")
+
+	// Create whatsmeow-compatible logger
+	waLogger := logger.NewWALogger("whatsapp")
 
 	// Initialize database
 	db, err := initDatabase(cfg.DatabasePath)
 	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
+		log.Fatal().Err(err).Msg("Failed to initialize database")
 	}
 
 	// Initialize whatsmeow device store
 	ctx := context.Background()
 	device, container, err := initDeviceStore(ctx, cfg.DatabasePath, waLogger)
 	if err != nil {
-		log.Fatalf("Failed to initialize device store: %v", err)
+		log.Fatal().Err(err).Msg("Failed to initialize device store")
 	}
 	_ = container // Keep container reference to prevent GC
 
@@ -94,10 +97,17 @@ func main() {
 }
 
 func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.WhatsAppService, msgSvc *service.MessageService, device *store.Device) {
-	log.Printf("WhatsApp Bridge starting...")
-	log.Printf("Database: %s", cfg.DatabasePath)
-	log.Printf("gRPC address: %s", cfg.GRPCAddress)
-	log.Printf("MCP address: %s", cfg.MCPAddress)
+	log := logger.Module("main")
+
+	log.Info().Msg("WhatsApp Bridge starting...")
+	log.Info().Str("database", cfg.DatabasePath).Msg("Database path")
+	log.Info().Str("address", cfg.GRPCAddress).Msg("gRPC address")
+	log.Info().Str("address", cfg.MCPAddress).Msg("MCP address")
+
+	// Start parent process monitoring if parent PID is set (subprocess mode)
+	if cfg.ParentPID > 0 {
+		go monitorParentProcess(cfg.ParentPID)
+	}
 
 	// Initialize gRPC server
 	grpcServer := grpcTransport.NewServer(
@@ -125,7 +135,7 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 
 	// Start gRPC server with ready signal
 	go func() {
-		log.Printf("Starting gRPC server on %s", cfg.GRPCAddress)
+		log.Info().Str("address", cfg.GRPCAddress).Msg("Starting gRPC server")
 		if err := grpcServer.StartWithReadySignal(grpcReadyCh); err != nil {
 			errCh <- fmt.Errorf("gRPC server error: %w", err)
 		}
@@ -133,7 +143,7 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 
 	// Start MCP SSE server
 	go func() {
-		log.Printf("Starting MCP SSE server on %s", cfg.MCPAddress)
+		log.Info().Str("address", cfg.MCPAddress).Msg("Starting MCP SSE server")
 		if err := mcpServer.Start(); err != nil {
 			errCh <- fmt.Errorf("MCP server error: %w", err)
 		}
@@ -142,29 +152,30 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 	// Wait for gRPC server to be ready before signaling
 	select {
 	case <-grpcReadyCh:
-		log.Printf("gRPC server is ready and listening")
+		log.Info().Msg("gRPC server is ready and listening")
 	case err := <-errCh:
-		log.Fatalf("Server failed to start: %v", err)
+		log.Fatal().Err(err).Msg("Server failed to start")
 	case <-time.After(10 * time.Second):
-		log.Fatalf("Timeout waiting for gRPC server to start")
+		log.Fatal().Msg("Timeout waiting for gRPC server to start")
 	}
 
 	// Print ready message for subprocess coordination
 	// This is printed AFTER the gRPC server is actually listening
+	// NOTE: This must remain as plain text (not JSON) for Swift to detect readiness
 	fmt.Println("ready")
 
 	// Auto-connect if device is already registered
 	if device.ID != nil {
-		log.Printf("Device registered, attempting auto-connect...")
+		log.Info().Msg("Device registered, attempting auto-connect...")
 		go func() {
 			if err := waSvc.Connect(context.Background()); err != nil {
-				log.Printf("Auto-connect failed: %v", err)
+				log.Error().Err(err).Msg("Auto-connect failed")
 			} else {
-				log.Printf("Auto-connected to WhatsApp")
+				log.Info().Msg("Auto-connected to WhatsApp")
 			}
 		}()
 	} else {
-		log.Printf("No device registered. Use gRPC GetPairingQR to pair a device.")
+		log.Info().Msg("No device registered. Use gRPC GetPairingQR to pair a device.")
 	}
 
 	// Wait for shutdown signal
@@ -173,34 +184,36 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 
 	select {
 	case err := <-errCh:
-		log.Printf("Server error: %v", err)
+		log.Error().Err(err).Msg("Server error")
 	case sig := <-sigCh:
-		log.Printf("Received signal %v, shutting down...", sig)
+		log.Info().Str("signal", sig.String()).Msg("Received signal, shutting down...")
 	}
 
 	// Graceful shutdown
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	log.Printf("Disconnecting WhatsApp...")
+	log.Info().Msg("Disconnecting WhatsApp...")
 	waSvc.Disconnect()
 
-	log.Printf("Stopping gRPC server...")
+	log.Info().Msg("Stopping gRPC server...")
 	grpcServer.Stop()
 
-	log.Printf("Stopping MCP server...")
+	log.Info().Msg("Stopping MCP server...")
 	if err := mcpServer.Stop(shutdownCtx); err != nil {
-		log.Printf("MCP server stop error: %v", err)
+		log.Error().Err(err).Msg("MCP server stop error")
 	}
 
-	log.Printf("Shutdown complete")
+	log.Info().Msg("Shutdown complete")
 }
 
 func runInteractiveMode(ctx context.Context, waSvc *service.WhatsAppService, msgSvc *service.MessageService, device *store.Device) {
+	log := logger.Module("cli")
+
 	// Auto-connect if device is already registered
 	if device.ID != nil {
 		if err := waSvc.Connect(ctx); err != nil {
-			log.Printf("Auto-connect failed: %v", err)
+			log.Error().Err(err).Msg("Auto-connect failed")
 		}
 	}
 
@@ -222,7 +235,7 @@ func runInteractiveMode(ctx context.Context, waSvc *service.WhatsAppService, msg
 
 	// Run interactive CLI
 	if err := interactiveCLI.Run(ctx); err != nil && err != context.Canceled {
-		log.Printf("CLI error: %v", err)
+		log.Error().Err(err).Msg("CLI error")
 	}
 
 	// Cleanup
@@ -230,10 +243,13 @@ func runInteractiveMode(ctx context.Context, waSvc *service.WhatsAppService, msg
 }
 
 func runHeadlessMode(ctx context.Context, waSvc *service.WhatsAppService, msgSvc *service.MessageService, device *store.Device) {
+	log := logger.Module("cli")
+
 	// Auto-connect if device is already registered
 	if device.ID != nil {
 		if err := waSvc.Connect(ctx); err != nil {
 			// Will report via JSON response
+			_ = err
 		}
 	}
 
@@ -255,7 +271,7 @@ func runHeadlessMode(ctx context.Context, waSvc *service.WhatsAppService, msgSvc
 
 	// Run headless CLI
 	if err := headlessCLI.Run(ctx); err != nil && err != context.Canceled {
-		log.Printf("CLI error: %v", err)
+		log.Error().Err(err).Msg("CLI error")
 	}
 
 	// Cleanup
@@ -286,11 +302,11 @@ func initDatabase(dbPath string) (*gorm.DB, error) {
 	return db, nil
 }
 
-func initDeviceStore(ctx context.Context, dbPath string, logger waLog.Logger) (*store.Device, *sqlstore.Container, error) {
+func initDeviceStore(ctx context.Context, dbPath string, waLogger waLog.Logger) (*store.Device, *sqlstore.Container, error) {
 	// Use a separate database file for whatsmeow to avoid schema conflicts
 	waDBPath := dbPath[:len(dbPath)-3] + "_wa.db"
 
-	container, err := sqlstore.New(ctx, "sqlite3", "file:"+waDBPath+"?_foreign_keys=on", logger)
+	container, err := sqlstore.New(ctx, "sqlite3", "file:"+waDBPath+"?_foreign_keys=on", waLogger)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create sqlstore container: %w", err)
 	}
@@ -301,4 +317,24 @@ func initDeviceStore(ctx context.Context, dbPath string, logger waLog.Logger) (*
 	}
 
 	return device, container, nil
+}
+
+// monitorParentProcess checks if the parent process is still alive and exits if it dies.
+// This ensures the bridge subprocess doesn't become orphaned when Homie.app crashes or is force-quit.
+func monitorParentProcess(parentPID int) {
+	log := logger.Module("monitor")
+	log.Info().Int("pid", parentPID).Msg("Monitoring parent process")
+	for {
+		time.Sleep(1 * time.Second)
+		process, err := os.FindProcess(parentPID)
+		if err != nil {
+			log.Info().Int("pid", parentPID).Msg("Parent process not found, exiting...")
+			os.Exit(0)
+		}
+		// On Unix, FindProcess always succeeds, so send signal 0 to check if process exists
+		if err := process.Signal(syscall.Signal(0)); err != nil {
+			log.Info().Int("pid", parentPID).Err(err).Msg("Parent process gone, exiting...")
+			os.Exit(0)
+		}
+	}
 }

@@ -8,6 +8,32 @@
 
 import Foundation
 
+// MARK: - Bridge Log Entry
+
+/// Represents a structured JSON log entry from the whatsapp-bridge
+private struct BridgeLogEntry: Codable {
+    let time: String
+    let level: String
+    let module: String?
+    let message: String
+
+    // Optional fields for different log types
+    let method: String?
+    let durationMs: Int?
+    let code: String?
+    let error: String?
+    let pid: Int?
+    let database: String?
+    let address: String?
+    let sub: String?
+    let stack: String?
+
+    enum CodingKeys: String, CodingKey {
+        case time, level, module, message, method, code, error, pid, database, address, sub, stack
+        case durationMs = "duration_ms"
+    }
+}
+
 // MARK: - Configuration
 
 /// Configuration for the WhatsApp bridge process
@@ -91,6 +117,9 @@ final class WhatsAppProcessManager {
     func start() async throws {
         Logger.info("Starting WhatsApp bridge process", module: "WhatsApp")
 
+        // Clean up any orphaned processes from previous crashes
+        cleanupOrphanedProcesses()
+
         // Check if binary exists
         guard FileManager.default.fileExists(atPath: configuration.binaryPath) else {
             Logger.error("Binary not found at path: \(configuration.binaryPath)", module: "WhatsApp")
@@ -121,7 +150,8 @@ final class WhatsAppProcessManager {
         process.arguments = ["-mode", "server"]
         process.environment = [
             "WA_GRPC_ADDRESS": configuration.grpcAddress,
-            "WA_DATABASE_PATH": configuration.databasePath
+            "WA_DATABASE_PATH": configuration.databasePath,
+            "WA_PARENT_PID": String(ProcessInfo.processInfo.processIdentifier)
         ]
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
@@ -240,17 +270,18 @@ final class WhatsAppProcessManager {
                 }
 
                 if let output = String(data: data, encoding: .utf8) {
-                    // Log stdout for debugging
+                    // Process each line from stdout
                     for line in output.components(separatedBy: .newlines) where !line.isEmpty {
-                        Logger.debug("stdout: \(line)", module: "WhatsApp")
-
-                        // Check for ready signal
-                        if line.lowercased().contains("ready") {
+                        // Check for ready signal first (plain text "ready" line)
+                        if line.lowercased() == "ready" {
                             timeoutWorkItem.cancel()
                             fileHandle.readabilityHandler = nil
                             safeResume(with: .success(()))
                             return
                         }
+
+                        // Parse and log the line (handles both JSON and plain text)
+                        self?.parseBridgeLine(line, defaultLevel: .debug)
                     }
                 }
             }
@@ -266,18 +297,51 @@ final class WhatsAppProcessManager {
 
     // MARK: - Private Helpers
 
+    /// Convert bridge log level string to Swift LogLevel
+    private func logLevelFromBridge(_ level: String) -> LogLevel {
+        switch level.lowercased() {
+        case "debug", "trace":
+            return .debug
+        case "info":
+            return .info
+        case "warn", "warning":
+            return .warning
+        case "error":
+            return .error
+        case "fatal", "panic":
+            return .critical
+        default:
+            return .debug
+        }
+    }
+
+    /// Parse and log a line from the bridge, handling both JSON and plain text
+    private func parseBridgeLine(_ line: String, defaultLevel: LogLevel) {
+        // Try to parse as JSON log entry
+        if let jsonData = line.data(using: .utf8),
+           let entry = try? JSONDecoder().decode(BridgeLogEntry.self, from: jsonData) {
+            let level = logLevelFromBridge(entry.level)
+            let moduleName = [entry.module, entry.sub].compactMap { $0 }.joined(separator: "/")
+            let prefix = moduleName.isEmpty ? "" : "[\(moduleName)] "
+            Logger.shared.log(level: level, message: "\(prefix)\(entry.message)", module: "WhatsApp-Bridge")
+        } else {
+            // Fallback for non-JSON output (plain text, panics, etc.)
+            Logger.shared.log(level: defaultLevel, message: line, module: "WhatsApp-Bridge")
+        }
+    }
+
     /// Setup stderr logging for debugging
     private func setupStderrLogging() {
         guard let stderrPipe = stderrPipe else { return }
 
         let fileHandle = stderrPipe.fileHandleForReading
-        fileHandle.readabilityHandler = { handle in
+        fileHandle.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty,
                   let output = String(data: data, encoding: .utf8) else { return }
 
             for line in output.components(separatedBy: .newlines) where !line.isEmpty {
-                Logger.warning("stderr: \(line)", module: "WhatsApp")
+                self?.parseBridgeLine(line, defaultLevel: .warning)
             }
         }
     }
@@ -289,6 +353,23 @@ final class WhatsAppProcessManager {
         stdoutPipe = nil
         stderrPipe = nil
         process = nil
+    }
+
+    /// Kill any orphaned whatsapp-bridge processes from previous app crashes
+    private func cleanupOrphanedProcesses() {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        task.arguments = ["-f", "whatsapp-bridge"]
+        task.standardOutput = FileHandle.nullDevice
+        task.standardError = FileHandle.nullDevice
+        do {
+            try task.run()
+            task.waitUntilExit()
+            Logger.debug("Cleaned up any orphaned whatsapp-bridge processes", module: "WhatsApp")
+        } catch {
+            // pkill may fail if no matching processes found, which is fine
+            Logger.debug("No orphaned whatsapp-bridge processes to clean up", module: "WhatsApp")
+        }
     }
 
     deinit {
