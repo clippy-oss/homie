@@ -44,7 +44,10 @@ func NewWhatsAppService(
 	config WhatsAppServiceConfig,
 	logger waLog.Logger,
 ) *WhatsAppService {
-	return &WhatsAppService{
+	client := whatsmeow.NewClient(device, logger)
+
+	svc := &WhatsAppService{
+		client:   client,
 		device:   device,
 		eventBus: eventBus,
 		msgRepo:  msgRepo,
@@ -52,18 +55,18 @@ func NewWhatsAppService(
 		config:   config,
 		logger:   logger,
 	}
+
+	client.AddEventHandler(svc.handleEvent)
+	return svc
 }
 
 func (s *WhatsAppService) Connect(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.client != nil && s.client.IsConnected() {
+	if s.client.IsConnected() {
 		return nil
 	}
-
-	s.client = whatsmeow.NewClient(s.device, s.logger)
-	s.client.AddEventHandler(s.handleEvent)
 
 	return s.client.Connect()
 }
@@ -72,10 +75,7 @@ func (s *WhatsAppService) Disconnect() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.client != nil {
-		s.client.Disconnect()
-		s.client = nil
-	}
+	s.client.Disconnect()
 	s.connected = false
 }
 
@@ -83,19 +83,14 @@ func (s *WhatsAppService) Logout(ctx context.Context) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.client == nil {
-		return fmt.Errorf("not connected")
-	}
-
 	// Logout from WhatsApp (removes device from linked devices)
 	err := s.client.Logout(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to logout: %w", err)
 	}
 
-	// Disconnect and clear client
+	// Disconnect after logout
 	s.client.Disconnect()
-	s.client = nil
 	s.connected = false
 
 	return nil
@@ -167,11 +162,6 @@ func (s *WhatsAppService) GetQRChannel(ctx context.Context) (<-chan whatsmeow.QR
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.client == nil {
-		s.client = whatsmeow.NewClient(s.device, s.logger)
-		s.client.AddEventHandler(s.handleEvent)
-	}
-
 	if s.device.ID != nil {
 		return nil, fmt.Errorf("already logged in")
 	}
@@ -182,11 +172,6 @@ func (s *WhatsAppService) GetQRChannel(ctx context.Context) (<-chan whatsmeow.QR
 func (s *WhatsAppService) PairWithCode(ctx context.Context, phoneNumber string) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-
-	if s.client == nil {
-		s.client = whatsmeow.NewClient(s.device, s.logger)
-		s.client.AddEventHandler(s.handleEvent)
-	}
 
 	// PairPhone requires an active websocket connection
 	if !s.client.IsConnected() {
