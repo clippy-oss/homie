@@ -170,6 +170,22 @@ struct DevicePairingView: View {
                     .frame(width: 200, height: 200)
                     .background(Color.white)
                     .cornerRadius(8)
+            } else {
+                // Fallback: Show error message when QR generation fails
+                VStack(spacing: 8) {
+                    Image(systemName: "qrcode")
+                        .font(.system(size: 60))
+                        .foregroundColor(.secondary)
+                    Text("QR code generation failed")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                    Text("Data length: \(qrData.count)")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .frame(width: 200, height: 200)
+                .background(Color(NSColor.controlBackgroundColor))
+                .cornerRadius(8)
             }
 
             Text("Scan this QR code with your phone")
@@ -395,20 +411,42 @@ struct DevicePairingView: View {
     }
 
     private func generateQRCode(from string: String) -> NSImage? {
+        // Debug: Log input
+        Logger.info("QR Generation: Input string length: \(string.count)", module: "WhatsApp")
+        if string.isEmpty {
+            Logger.error("QR Generation: Empty string received!", module: "WhatsApp")
+            return nil
+        }
+        Logger.debug("QR Generation: First 50 chars: \(string.prefix(50))", module: "WhatsApp")
+
         let context = CIContext()
         let filter = CIFilter.qrCodeGenerator()
 
-        filter.message = Data(string.utf8)
+        // Convert string to data
+        let data = Data(string.utf8)
+        Logger.debug("QR Generation: Data size: \(data.count) bytes", module: "WhatsApp")
+
+        filter.message = data
         filter.correctionLevel = "M"
 
-        guard let outputImage = filter.outputImage else { return nil }
+        guard let outputImage = filter.outputImage else {
+            Logger.error("QR Generation: CIFilter.outputImage is nil!", module: "WhatsApp")
+            return nil
+        }
+
+        Logger.debug("QR Generation: CIImage size: \(outputImage.extent)", module: "WhatsApp")
 
         let scale = 10.0
         let scaledImage = outputImage.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
 
-        guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else { return nil }
+        guard let cgImage = context.createCGImage(scaledImage, from: scaledImage.extent) else {
+            Logger.error("QR Generation: Failed to create CGImage", module: "WhatsApp")
+            return nil
+        }
 
-        return NSImage(cgImage: cgImage, size: NSSize(width: scaledImage.extent.width, height: scaledImage.extent.height))
+        let nsImage = NSImage(cgImage: cgImage, size: NSSize(width: scaledImage.extent.width, height: scaledImage.extent.height))
+        Logger.info("QR Generation: Success! Image size: \(nsImage.size)", module: "WhatsApp")
+        return nsImage
     }
 }
 

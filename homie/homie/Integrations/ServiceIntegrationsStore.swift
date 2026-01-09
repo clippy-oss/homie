@@ -174,6 +174,7 @@ final class ServiceIntegrationsStore: ObservableObject {
 
                     switch event {
                     case .qrCode(let code):
+                        Logger.info("Store: Setting QR state, code length: \(code.count)", module: "Integrations")
                         whatsAppPairingState = .showingQR(code)
 
                     case .pairingCode:

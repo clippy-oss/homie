@@ -616,6 +616,7 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
     private func convertPairingQREvent(_ proto: Whatsapp_V1_PairingQREvent) -> PairingEvent {
         switch proto.payload {
         case .qrCode(let code):
+            Logger.info("Provider: Converting QR code, length: \(code.count)", module: "WhatsApp")
             return .qrCode(code)
         case .timeout:
             return .timeout

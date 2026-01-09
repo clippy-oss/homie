@@ -187,7 +187,9 @@ final class WhatsAppGRPCClient: Sendable {
                             eventCount += 1
                             let eventType: String
                             switch event.payload {
-                            case .qrCode: eventType = "qrCode"
+                            case .qrCode(let code):
+                                eventType = "qrCode"
+                                Logger.info("gRPC: QR code received, length: \(code.count), preview: \(code.prefix(50))...", module: "WhatsApp")
                             case .timeout: eventType = "timeout"
                             case .success: eventType = "success"
                             case .error(let msg): eventType = "error(\(msg))"
