@@ -84,8 +84,8 @@ final class WhatsAppGRPCClient: Sendable {
 
     /// Returns true if the gRPC transport is ready for RPCs
     var isTransportReady: Bool {
-        if case .ready = transportState.state { return true }
-        return false
+        guard case .ready = transportState.state else { return false }
+        return true
     }
 
     // MARK: - Initialization

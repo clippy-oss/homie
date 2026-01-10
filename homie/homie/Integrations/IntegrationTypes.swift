@@ -71,13 +71,13 @@ enum IntegrationStatus: Equatable {
     case error(String)
 
     var isConnected: Bool {
-        if case .connected = self { return true }
-        return false
+        guard case .connected = self else { return false }
+        return true
     }
 
     var isPairing: Bool {
-        if case .pairing = self { return true }
-        return false
+        guard case .pairing = self else { return false }
+        return true
     }
 }
 

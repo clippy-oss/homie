@@ -299,20 +299,14 @@ final class WhatsAppProcessManager {
 
     /// Convert bridge log level string to Swift LogLevel
     private func logLevelFromBridge(_ level: String) -> LogLevel {
-        switch level.lowercased() {
-        case "debug", "trace":
-            return .debug
-        case "info":
-            return .info
-        case "warn", "warning":
-            return .warning
-        case "error":
-            return .error
-        case "fatal", "panic":
-            return .critical
-        default:
-            return .debug
-        }
+        let levelMappings: [String: LogLevel] = [
+            "debug": .debug, "trace": .debug,
+            "info": .info,
+            "warn": .warning, "warning": .warning,
+            "error": .error,
+            "fatal": .critical, "panic": .critical
+        ]
+        return levelMappings[level.lowercased()] ?? .debug
     }
 
     /// Parse and log a line from the bridge, handling both JSON and plain text

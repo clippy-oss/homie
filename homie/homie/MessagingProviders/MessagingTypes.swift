@@ -32,10 +32,8 @@ enum MessagingConnectionStatus: Equatable {
 
     /// Whether the provider is currently connected and operational
     var isConnected: Bool {
-        if case .connected = self {
-            return true
-        }
-        return false
+        guard case .connected = self else { return false }
+        return true
     }
 }
 

@@ -36,8 +36,8 @@ enum IntegrationPairingState: Equatable {
     }
 
     var isSuccess: Bool {
-        if case .success = self { return true }
-        return false
+        guard case .success = self else { return false }
+        return true
     }
 
     var errorMessage: String? {

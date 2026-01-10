@@ -123,17 +123,20 @@ struct IntegrationsView: View {
         guard let providerID = config.messagingProviderID else {
             return .disconnected
         }
+
         if integrationsStore.isLoggedIn(providerID) {
             return .connected(email: nil)
         }
-        switch integrationsStore.connectionStatus(providerID) {
+
+        let connectionStatus = integrationsStore.connectionStatus(providerID)
+        switch connectionStatus {
         case .connecting:
             return .connecting
         case .pairing:
             return .pairing
         case .error(let msg):
             return .error(msg)
-        default:
+        case .disconnected, .connected:
             return .disconnected
         }
     }
@@ -293,10 +296,7 @@ struct IntegrationCard: View {
         case .pairing:
             return "Waiting for pairing..."
         case .connected(let email):
-            if let email = email {
-                return email
-            }
-            return "Connected"
+            return email ?? "Connected"
         case .error(let message):
             return "Error: \(message)"
         }

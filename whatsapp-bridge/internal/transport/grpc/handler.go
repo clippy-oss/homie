@@ -52,13 +52,9 @@ func (h *Handler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.Logout
 }
 
 func (h *Handler) GetConnectionStatus(ctx context.Context, req *pb.GetConnectionStatusRequest) (*pb.GetConnectionStatusResponse, error) {
-	var connStatus pb.ConnectionStatus
+	connStatus := pb.ConnectionStatus_CONNECTION_STATUS_DISCONNECTED
 	if h.waSvc.IsConnected() {
 		connStatus = pb.ConnectionStatus_CONNECTION_STATUS_CONNECTED
-	} else if h.waSvc.IsLoggedIn() {
-		connStatus = pb.ConnectionStatus_CONNECTION_STATUS_DISCONNECTED
-	} else {
-		connStatus = pb.ConnectionStatus_CONNECTION_STATUS_DISCONNECTED
 	}
 
 	return &pb.GetConnectionStatusResponse{

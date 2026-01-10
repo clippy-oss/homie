@@ -562,13 +562,7 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
     // MARK: - Conversion Helpers
 
     private func convertChat(_ proto: Whatsapp_V1_Chat) -> MessagingChat {
-        let chatType: MessagingChat.ChatType
-        switch proto.type {
-        case .group:
-            chatType = .group
-        case .private, .unspecified, .UNRECOGNIZED:
-            chatType = .individual
-        }
+        let chatType: MessagingChat.ChatType = proto.type == .group ? .group : .individual
 
         return MessagingChat(
             id: formatJID(proto.jid),
@@ -675,13 +669,11 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
 
     private func convertConnectionStatus(_ proto: Whatsapp_V1_ConnectionStatus) -> MessagingConnectionStatus {
         switch proto {
-        case .disconnected:
-            return .disconnected
-        case .connecting:
-            return .connecting
         case .connected:
             return .connected
-        case .unspecified, .UNRECOGNIZED:
+        case .connecting:
+            return .connecting
+        case .disconnected, .unspecified, .UNRECOGNIZED:
             return .disconnected
         }
     }
@@ -704,10 +696,12 @@ class WhatsAppMessagingProvider: MessagingProviderProtocol, ObservableObject {
     /// Parse a chat ID string in "user@server" format to a JID
     private func parseJID(_ chatID: String) -> Whatsapp_V1_JID {
         let components = chatID.split(separator: "@", maxSplits: 1)
+        let user = components.first.map(String.init) ?? ""
+        let server = components.count > 1 ? String(components[1]) : "s.whatsapp.net"
 
         var jid = Whatsapp_V1_JID()
-        jid.user = String(components.first ?? "")
-        jid.server = components.count > 1 ? String(components[1]) : "s.whatsapp.net"
+        jid.user = user
+        jid.server = server
         return jid
     }
 
