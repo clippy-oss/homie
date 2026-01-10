@@ -149,7 +149,6 @@ struct IntegrationsView: View {
                 onSuccess: {
                     showingPairingSheet = false
                     pairingIntegration = nil
-                    Logger.info("IntegrationsView: Connected to \(config.name) via device pairing", module: "Integrations")
                 },
                 onCancel: {
                     showingPairingSheet = false
@@ -186,7 +185,14 @@ struct IntegrationsView: View {
             }
 
         case .devicePairing:
-            Logger.info("Showing device pairing sheet for \(config.name)", module: "Integrations")
+            Logger.info("Device pairing: starting QR pairing for \(config.name)", module: "Integrations")
+            if let providerID = config.messagingProviderID {
+                Logger.info("Device pairing: providerID = \(providerID.rawValue)", module: "Integrations")
+                integrationsStore.startQRPairing(providerID)
+            } else {
+                Logger.error("Device pairing: messagingProviderID is nil for \(config.name)", module: "Integrations")
+            }
+            // Also show sheet for UI
             pairingIntegration = config
             showingPairingSheet = true
         }

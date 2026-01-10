@@ -1,12 +1,17 @@
-.PHONY: all build build-bridge build-app run clean help
+.PHONY: all build build-bridge build-app run clean clean-data clean-all help
 .PHONY: build-debug build-release install-bridge
 .PHONY: bridge-run bridge-interactive bridge-headless
-.PHONY: kill-bridge ps
+.PHONY: kill-bridge kill-all ps
+.PHONY: grpc-cli grpc-cli-run grpc-cli-sync grpc-cli-clean
+
+# Data directories
+HOMIE_DATA_DIR := $(HOME)/Library/Application Support/homie
 
 # Directories
 PROJECT_ROOT := $(shell pwd)
 HOMIE_DIR := $(PROJECT_ROOT)/homie
 BRIDGE_DIR := $(PROJECT_ROOT)/whatsapp-bridge
+GRPC_CLI_DIR := $(PROJECT_ROOT)/tools/wa-grpc-cli
 
 # Xcode settings
 SCHEME := homie
@@ -112,6 +117,11 @@ kill-bridge:
 	@echo "Killing whatsapp-bridge processes..."
 	@pkill -f whatsapp-bridge 2>/dev/null || echo "No whatsapp-bridge processes running"
 
+## kill-all: Kill all Homie-related processes
+kill-all: kill-bridge
+	@echo "Killing Homie.app..."
+	@pkill -f "homie.app" 2>/dev/null || echo "No Homie.app processes running"
+
 ## ps: Show running Homie and whatsapp-bridge processes
 ps:
 	@echo "=== Homie.app ==="
@@ -119,6 +129,17 @@ ps:
 	@echo ""
 	@echo "=== whatsapp-bridge ==="
 	@ps aux | grep "[w]hatsapp-bridge" || echo "Not running"
+
+## clean-data: Remove WhatsApp database files (messages, device credentials)
+clean-data: kill-bridge
+	@echo "Cleaning WhatsApp data files..."
+	@rm -f "$(HOMIE_DATA_DIR)/whatsapp.db" "$(HOMIE_DATA_DIR)/whatsapp.db-shm" "$(HOMIE_DATA_DIR)/whatsapp.db-wal"
+	@rm -f "$(HOMIE_DATA_DIR)/whatsapp_wa.db" "$(HOMIE_DATA_DIR)/whatsapp_wa.db-shm" "$(HOMIE_DATA_DIR)/whatsapp_wa.db-wal"
+	@echo "WhatsApp data cleaned (device will need to re-pair)"
+
+## clean-all: Full cleanup - build artifacts + data files
+clean-all: clean clean-data
+	@echo "Full cleanup complete"
 
 ## logs: Tail Homie.app logs (if using os_log)
 logs:
@@ -150,6 +171,31 @@ test:
 ## xcode: Open project in Xcode
 xcode:
 	@open "$(HOMIE_DIR)/homie.xcodeproj"
+
+# ============================================================================
+# Swift gRPC CLI Targets
+# ============================================================================
+
+## grpc-cli: Build the Swift gRPC CLI tool
+grpc-cli:
+	@echo "Building wa-grpc-cli..."
+	@cd $(GRPC_CLI_DIR) && swift build
+
+## grpc-cli-run: Run the Swift gRPC CLI (requires bridge running)
+grpc-cli-run:
+	@cd $(GRPC_CLI_DIR) && swift run wa-grpc-cli
+
+## grpc-cli-sync: Sync generated gRPC files from main app
+grpc-cli-sync:
+	@echo "Syncing generated gRPC files..."
+	@mkdir -p $(GRPC_CLI_DIR)/Sources/wa-grpc-cli/Generated
+	@cp $(HOMIE_DIR)/homie/MessagingProviders/WhatsApp/Generated/*.swift \
+	    $(GRPC_CLI_DIR)/Sources/wa-grpc-cli/Generated/
+	@echo "Synced files to $(GRPC_CLI_DIR)/Sources/wa-grpc-cli/Generated/"
+
+## grpc-cli-clean: Clean Swift gRPC CLI build artifacts
+grpc-cli-clean:
+	@cd $(GRPC_CLI_DIR) && swift package clean
 
 # ============================================================================
 # Help

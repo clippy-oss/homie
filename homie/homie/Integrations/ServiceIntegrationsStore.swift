@@ -81,8 +81,9 @@ final class ServiceIntegrationsStore: ObservableObject {
     private var providerPairingState: [MessagingProviderID: IntegrationPairingState] = [:]
     private var providerPairingTasks: [MessagingProviderID: Task<Void, Never>] = [:]
 
-    /// Triggers view updates when any provider state changes
-    @Published private var stateVersion: Int = 0
+    /// Triggers view updates when any provider state changes.
+    /// Views should access this property in their body to properly observe state changes.
+    @Published private(set) var stateVersion: Int = 0
 
     // MARK: - Private State
 
@@ -222,6 +223,7 @@ final class ServiceIntegrationsStore: ObservableObject {
 
     /// Start QR code pairing flow for a provider
     func startQRPairing(_ provider: MessagingProviderID) {
+        Logger.info("startQRPairing: \(provider.rawValue)", module: "Integrations")
         cancelPairing(provider)
         updatePairingState(provider, .waitingForQR)
 
@@ -242,7 +244,7 @@ final class ServiceIntegrationsStore: ObservableObject {
 
                     switch event {
                     case .qrCode(let code):
-                        Logger.info("Store: Setting QR state, code length: \(code.count)", module: "Integrations")
+                        Logger.info("QR code received, length: \(code.count)", module: "Integrations")
                         updatePairingState(provider, .showingQR(code))
 
                     case .pairingCode:
