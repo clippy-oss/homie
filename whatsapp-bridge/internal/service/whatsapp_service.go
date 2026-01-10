@@ -212,6 +212,9 @@ func (s *WhatsAppService) SendTextMessage(ctx context.Context, chatJID domain.JI
 		s.logger.Warnf("Failed to persist sent message: %v", err)
 	}
 
+	// Ensure chat exists before updating (Codex P1)
+	s.ensureChatExists(ctx, chatJID, waJID)
+
 	if err := s.chatRepo.UpdateLastMessage(ctx, chatJID, text, "me", resp.Timestamp); err != nil {
 		s.logger.Warnf("Failed to update chat: %v", err)
 	}
@@ -261,7 +264,9 @@ func (s *WhatsAppService) MarkAsRead(ctx context.Context, chatJID domain.JID, me
 		s.logger.Warnf("Failed to update read status in db: %v", err)
 	}
 
-	if err := s.chatRepo.UpdateUnreadCount(ctx, chatJID, 0); err != nil {
+	// Codex P2: Don't zero unread count for partial reads
+	// Decrement by the number of messages marked as read instead
+	if err := s.chatRepo.DecrementUnreadCount(ctx, chatJID, len(messageIDs)); err != nil {
 		s.logger.Warnf("Failed to update unread count: %v", err)
 	}
 
@@ -339,6 +344,9 @@ func (s *WhatsAppService) handleMessage(evt *events.Message) {
 	if err := s.msgRepo.Create(ctx, msg); err != nil {
 		s.logger.Warnf("Failed to persist message %s in chat %s: %v", msg.ID, msg.ChatJID.String(), err)
 	}
+
+	// Ensure chat exists before updating (Codex P1: upsert chat before updating last message)
+	s.ensureChatExists(ctx, msg.ChatJID, s.toWhatsmeowJID(msg.ChatJID))
 
 	senderName := msg.SenderJID.User
 	if !msg.IsFromMe {
@@ -552,16 +560,27 @@ func (s *WhatsAppService) convertHistorySyncMessage(webMsg *waWeb.WebMessageInfo
 	senderJIDStr := msgKey.GetParticipant()
 	if senderJIDStr == "" {
 		if msgKey.GetFromMe() {
-			// Use own JID for messages from self
-			if s.client != nil && s.client.Store.ID != nil {
-				senderJIDStr = s.client.Store.ID.String()
+			// Use own JID for messages from self (thread-safe access)
+			ownJID := s.getOwnJID()
+			if ownJID.User != "" {
+				senderJIDStr = ownJID.String()
 			}
 		} else {
 			senderJIDStr = msgKey.GetRemoteJID()
 		}
 	}
 
-	senderJID, _ := types.ParseJID(senderJIDStr)
+	// Handle empty sender JID string
+	if senderJIDStr == "" {
+		s.logger.Warnf("Empty sender JID for message %s, skipping", msgKey.GetID())
+		return nil
+	}
+
+	senderJID, err := types.ParseJID(senderJIDStr)
+	if err != nil {
+		s.logger.Warnf("Failed to parse sender JID %s: %v", senderJIDStr, err)
+		return nil
+	}
 	domainSenderJID := s.toDomainJID(senderJID)
 
 	var msgType domain.MessageType
@@ -729,7 +748,9 @@ func (s *WhatsAppService) toDomainJID(jid types.JID) domain.JID {
 }
 
 func (s *WhatsAppService) getOwnJID() domain.JID {
-	if s.client != nil && s.client.Store.ID != nil {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	if s.client != nil && s.client.Store != nil && s.client.Store.ID != nil {
 		return s.toDomainJID(*s.client.Store.ID)
 	}
 	return domain.JID{}

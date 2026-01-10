@@ -192,7 +192,9 @@ extension IntegrationConfig {
     )
 
     /// All available integrations
-    static let allIntegrations: [IntegrationConfig] = [.linear, .googleCalendar, .whatsApp]
+    static var allIntegrations: [IntegrationConfig] {
+        [.linear, .googleCalendar, .whatsApp]
+    }
 }
 
 // MARK: - Color Helpers

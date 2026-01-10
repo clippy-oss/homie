@@ -607,6 +607,7 @@ struct MessageInputBar: View {
                     .textFieldStyle(.plain)
                     .lineLimit(1...5)
                     .onSubmit {
+                        guard !messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
                         onSend()
                     }
             }

@@ -10,6 +10,9 @@ type Contact struct {
 }
 
 func (c *Contact) DisplayName() string {
+	if c == nil {
+		return ""
+	}
 	if c.Name != "" {
 		return c.Name
 	}

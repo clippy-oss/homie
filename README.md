@@ -26,11 +26,13 @@ A voice-controlled AI assistant for macOS with local speech processing and cloud
 
 ## Quick Start
 
-### 1. Clone the repository
+### 1. Clone and setup
 
 ```bash
 git clone https://github.com/your-org/homie.git
 cd homie
+./scripts/setup.sh
+echo 'export PATH="$PATH:$HOME/go/bin"' >> ~/.zshrc && source ~/.zshrc
 ```
 
 ### 2. macOS App

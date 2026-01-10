@@ -21,8 +21,9 @@ type MessageModel struct {
 	IsFromMe        bool      `gorm:"column:is_from_me"`
 	IsRead          bool      `gorm:"column:is_read;index"`
 	QuotedMessageID string    `gorm:"column:quoted_message_id"`
-	ReactionEmoji   string    `gorm:"column:reaction_emoji"`
-	ReactionTarget  string    `gorm:"column:reaction_target"`
+	ReactionEmoji     string    `gorm:"column:reaction_emoji"`
+	ReactionTarget    string    `gorm:"column:reaction_target"`
+	ReactionTimestamp time.Time `gorm:"column:reaction_timestamp"`
 	LocationLat     float64   `gorm:"column:location_lat"`
 	LocationLng     float64   `gorm:"column:location_lng"`
 	LocationName    string    `gorm:"column:location_name"`
@@ -62,8 +63,16 @@ func MessageModelToDomain(m *MessageModel) *domain.Message {
 		return nil
 	}
 
-	chatJID, _ := domain.ParseJID(m.ChatJID)
-	senderJID, _ := domain.ParseJID(m.SenderJID)
+	chatJID, err := domain.ParseJID(m.ChatJID)
+	if err != nil {
+		// Return nil for corrupted records with invalid JIDs
+		return nil
+	}
+	senderJID, err := domain.ParseJID(m.SenderJID)
+	if err != nil {
+		// Return nil for corrupted records with invalid JIDs
+		return nil
+	}
 
 	msg := &domain.Message{
 		ID:              m.ID,
@@ -83,15 +92,18 @@ func MessageModelToDomain(m *MessageModel) *domain.Message {
 	}
 
 	if m.ReactionEmoji != "" {
-		reactionSenderJID, _ := domain.ParseJID(m.SenderJID)
+		// Use the already-parsed senderJID from above
 		msg.Reaction = &domain.Reaction{
 			TargetMessageID: m.ReactionTarget,
 			Emoji:           m.ReactionEmoji,
-			SenderJID:       reactionSenderJID,
+			SenderJID:       senderJID,
+			Timestamp:       m.ReactionTimestamp,
 		}
 	}
 
-	if m.LocationLat != 0 || m.LocationLng != 0 {
+	// Check if this is a location message by type, not coordinates
+	// (0,0) is a valid location (Gulf of Guinea)
+	if m.Type == string(domain.MessageTypeLocation) {
 		msg.Location = &domain.Location{
 			Latitude:  m.LocationLat,
 			Longitude: m.LocationLng,
@@ -136,6 +148,7 @@ func MessageDomainToModel(msg *domain.Message) *MessageModel {
 	if msg.Reaction != nil {
 		model.ReactionEmoji = msg.Reaction.Emoji
 		model.ReactionTarget = msg.Reaction.TargetMessageID
+		model.ReactionTimestamp = msg.Reaction.Timestamp
 	}
 
 	if msg.Location != nil {
@@ -159,7 +172,11 @@ func ChatModelToDomain(m *ChatModel) *domain.Chat {
 		return nil
 	}
 
-	jid, _ := domain.ParseJID(m.JID)
+	jid, err := domain.ParseJID(m.JID)
+	if err != nil {
+		// Return nil for corrupted records with invalid JIDs
+		return nil
+	}
 
 	return &domain.Chat{
 		JID:               jid,

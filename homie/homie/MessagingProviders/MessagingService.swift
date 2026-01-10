@@ -54,6 +54,11 @@ final class MessagingService {
         return provider
     }
 
+    /// Safely get a provider if registered, returns nil otherwise
+    func providerIfRegistered(_ id: MessagingProviderID) -> MessagingProviderProtocol? {
+        providers[id]
+    }
+
     /// Check if a provider's transport is ready
     func isProviderReady(_ id: MessagingProviderID) -> Bool {
         providers[id]?.isReady ?? false

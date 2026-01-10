@@ -1,4 +1,4 @@
-.PHONY: all build proto clean test run deps lint
+.PHONY: all build proto clean test run deps lint tidy dev build-macos-arm64 build-macos-amd64 build-macos-universal
 
 # Go parameters
 GOCMD=go

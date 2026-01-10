@@ -17,8 +17,11 @@ type Config struct {
 	LogLevel     string
 }
 
-func Load() *Config {
-	homeDir, _ := os.UserHomeDir()
+func Load() (*Config, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return nil, err
+	}
 	dataDir := filepath.Join(homeDir, ".whatsapp-bridge")
 
 	cfg := &Config{}
@@ -36,10 +39,14 @@ func Load() *Config {
 	cfg.ParentPID = getEnvInt("WA_PARENT_PID", 0)
 
 	// Ensure directories exist
-	os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0755)
-	os.MkdirAll(cfg.MediaPath, 0755)
+	if err := os.MkdirAll(filepath.Dir(cfg.DatabasePath), 0755); err != nil {
+		return nil, err
+	}
+	if err := os.MkdirAll(cfg.MediaPath, 0755); err != nil {
+		return nil, err
+	}
 
-	return cfg
+	return cfg, nil
 }
 
 func getEnv(key, defaultValue string) string {

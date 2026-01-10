@@ -41,7 +41,11 @@ const (
 
 func main() {
 	// Load configuration (also handles flag parsing)
-	cfg := config.Load()
+	cfg, err := config.Load()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load configuration: %v\n", err)
+		os.Exit(1)
+	}
 
 	// Initialize structured logger
 	logLevel := cfg.LogLevel
@@ -253,8 +257,7 @@ func runHeadlessMode(ctx context.Context, waSvc *service.WhatsAppService, msgSvc
 	// Auto-connect if device is already registered
 	if device.ID != nil {
 		if err := waSvc.Connect(ctx); err != nil {
-			// Will report via JSON response
-			_ = err
+			log.Error().Err(err).Msg("Auto-connect failed in headless mode")
 		}
 	}
 
@@ -292,7 +295,9 @@ func initDatabase(dbPath string) (*gorm.DB, error) {
 	}
 
 	// Enable WAL mode for better concurrency
-	db.Exec("PRAGMA journal_mode=WAL")
+	if err := db.Exec("PRAGMA journal_mode=WAL").Error; err != nil {
+		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
 
 	// Auto-migrate models
 	// Note: Contacts are stored by whatsmeow's built-in ContactStore (whatsmeow_contacts table)
@@ -309,7 +314,13 @@ func initDatabase(dbPath string) (*gorm.DB, error) {
 
 func initDeviceStore(ctx context.Context, dbPath string, waLogger waLog.Logger) (*store.Device, *sqlstore.Container, error) {
 	// Use a separate database file for whatsmeow to avoid schema conflicts
-	waDBPath := dbPath[:len(dbPath)-3] + "_wa.db"
+	// Safely construct the path by checking for .db extension
+	var waDBPath string
+	if len(dbPath) > 3 && dbPath[len(dbPath)-3:] == ".db" {
+		waDBPath = dbPath[:len(dbPath)-3] + "_wa.db"
+	} else {
+		waDBPath = dbPath + "_wa.db"
+	}
 
 	container, err := sqlstore.New(ctx, "sqlite3", "file:"+waDBPath+"?_foreign_keys=on", waLogger)
 	if err != nil {

@@ -294,9 +294,11 @@ final class ServiceIntegrationsStore: ObservableObject {
 
                 let providerImpl = messagingService.provider(provider)
                 let code = try await providerImpl.startCodePairing(phoneNumber: phoneNumber)
+                if Task.isCancelled { return }
                 updatePairingState(provider, .showingCode(code))
 
                 // Wait for pairing to complete
+                if Task.isCancelled { return }
                 let userID = try await providerImpl.awaitCodePairingCompletion()
                 updatePairingState(provider, .success(userID: userID))
 

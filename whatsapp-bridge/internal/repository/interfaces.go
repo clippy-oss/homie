@@ -25,6 +25,7 @@ type ChatRepository interface {
 	UpdateLastMessage(ctx context.Context, jid domain.JID, text, sender string, timestamp time.Time) error
 	UpdateUnreadCount(ctx context.Context, jid domain.JID, count int) error
 	IncrementUnreadCount(ctx context.Context, jid domain.JID) error
+	DecrementUnreadCount(ctx context.Context, jid domain.JID, count int) error
 	UpdateArchived(ctx context.Context, jid domain.JID, archived bool) error
 	Delete(ctx context.Context, jid domain.JID) error
 }

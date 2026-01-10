@@ -81,6 +81,16 @@ type PairingCodeEvent struct {
 func (e PairingCodeEvent) Type() EventType      { return EventTypePairingCode }
 func (e PairingCodeEvent) Timestamp() time.Time { return e.EventTime }
 
+type PresenceUpdatedEvent struct {
+	JID       JID
+	Available bool
+	LastSeen  time.Time
+	EventTime time.Time
+}
+
+func (e PresenceUpdatedEvent) Type() EventType      { return EventTypePresenceUpdated }
+func (e PresenceUpdatedEvent) Timestamp() time.Time { return e.EventTime }
+
 // EventBus provides pub/sub for domain events
 type EventBus interface {
 	Publish(event Event)

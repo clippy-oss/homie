@@ -31,12 +31,9 @@ class WhatsAppDatabaseManager: ObservableObject {
         let currentDir = fileManager.currentDirectoryPath
         possiblePaths.append("\(currentDir)/whatsapp-bridge/dummy_whatsapp.db")
         
-        // Try relative to home directory
+        // Try relative to home directory (dynamically resolved)
         let homeDir = NSHomeDirectory()
-        possiblePaths.append("\(homeDir)/CursorProjects/homie_project/whatsapp-bridge/dummy_whatsapp.db")
-        
-        // Try absolute path
-        possiblePaths.append("/Users/maxprokopp/CursorProjects/homie_project/whatsapp-bridge/dummy_whatsapp.db")
+        possiblePaths.append("\(homeDir)/Developer/homie_project/whatsapp-bridge/dummy_whatsapp.db")
         
         // Try relative to executable (for Xcode builds)
         if let execPath = Bundle.main.executablePath {
@@ -54,7 +51,7 @@ class WhatsAppDatabaseManager: ObservableObject {
             }
         }
         
-        self.dbPath = foundPath ?? possiblePaths.last!
+        self.dbPath = foundPath ?? possiblePaths.last ?? ""
         
         if foundPath != nil {
             openDatabase()

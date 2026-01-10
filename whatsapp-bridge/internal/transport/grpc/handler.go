@@ -52,13 +52,8 @@ func (h *Handler) Logout(ctx context.Context, req *pb.LogoutRequest) (*pb.Logout
 }
 
 func (h *Handler) GetConnectionStatus(ctx context.Context, req *pb.GetConnectionStatusRequest) (*pb.GetConnectionStatusResponse, error) {
-	connStatus := pb.ConnectionStatus_CONNECTION_STATUS_DISCONNECTED
-	if h.waSvc.IsConnected() {
-		connStatus = pb.ConnectionStatus_CONNECTION_STATUS_CONNECTED
-	}
-
 	return &pb.GetConnectionStatusResponse{
-		Status:     connStatus,
+		Status:     connectionStatusToPB(h.waSvc.IsConnected()),
 		IsLoggedIn: h.waSvc.IsLoggedIn(),
 	}, nil
 }
@@ -278,6 +273,13 @@ func jidToPB(jid domain.JID) *pb.JID {
 	return &pb.JID{User: jid.User, Server: jid.Server}
 }
 
+func connectionStatusToPB(connected bool) pb.ConnectionStatus {
+	if connected {
+		return pb.ConnectionStatus_CONNECTION_STATUS_CONNECTED
+	}
+	return pb.ConnectionStatus_CONNECTION_STATUS_DISCONNECTED
+}
+
 func chatToPB(chat *domain.Chat) *pb.Chat {
 	if chat == nil {
 		return nil
@@ -382,18 +384,12 @@ func eventToPB(event domain.Event) *pb.WhatsAppEvent {
 			},
 		}
 	case domain.ConnectionStatusEvent:
-		var connStatus pb.ConnectionStatus
-		if e.Connected {
-			connStatus = pb.ConnectionStatus_CONNECTION_STATUS_CONNECTED
-		} else {
-			connStatus = pb.ConnectionStatus_CONNECTION_STATUS_DISCONNECTED
-		}
 		return &pb.WhatsAppEvent{
 			Type:      pb.EventType_EVENT_TYPE_CONNECTION_STATUS,
 			Timestamp: timestamppb.New(e.Timestamp()),
 			Payload: &pb.WhatsAppEvent_ConnectionEvent{
 				ConnectionEvent: &pb.ConnectionEvent{
-					Status: connStatus,
+					Status: connectionStatusToPB(e.Connected),
 					Reason: e.Reason,
 				},
 			},

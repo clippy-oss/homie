@@ -57,8 +57,10 @@ class MessageViewModel: ObservableObject {
             return // Don't send empty messages
         }
         
-        let provider = MessagingService.shared.provider(.whatsapp)
-        
+        guard let provider = MessagingService.shared.providerIfRegistered(.whatsapp) else {
+            throw NSError(domain: "MessageViewModel", code: 2, userInfo: [NSLocalizedDescriptionKey: "WhatsApp provider not registered"])
+        }
+
         do {
             _ = try await provider.sendMessage(chatID: chat.jid, text: text, quotedMessageID: nil as String?)
             Logger.info("Message sent successfully to \(chat.name)", module: "MessageView")

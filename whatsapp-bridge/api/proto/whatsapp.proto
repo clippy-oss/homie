@@ -70,6 +70,7 @@ enum MessageType {
   MESSAGE_TYPE_STICKER = 6;
   MESSAGE_TYPE_REACTION = 7;
   MESSAGE_TYPE_LOCATION = 8;
+  MESSAGE_TYPE_CONTACT = 9;
 }
 
 // EventType represents the type of a WhatsApp event.
@@ -110,6 +111,7 @@ message Chat {
   int32 unread_count = 6;
   bool is_muted = 7;
   bool is_archived = 8;
+  bool is_pinned = 9;
 }
 
 // Message represents a WhatsApp message.
@@ -137,6 +139,8 @@ message Message {
 message Reaction {
   string target_message_id = 1;
   string emoji = 2;
+  JID sender_jid = 3;
+  google.protobuf.Timestamp timestamp = 4;
 }
 
 // =============================================================================
