@@ -9,12 +9,14 @@ import Cocoa
 import SwiftUI
 import Carbon
 import ApplicationServices
+import CoreText
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate {
 
     private var floatingWindowController: FloatingWindowController?
     private var notionHomeWindowController: NotionHomeWindowController?
+    private var messageWindowController: MessageWindowController?
     private var loginWindowController: NSWindowController?
     private var permissionsWindowController: NSWindowController?
     private var statusItem: NSStatusItem?
@@ -23,6 +25,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
     private let updateManager = UpdateManager.shared
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // Register custom fonts
+        registerCustomFonts()
+        
         // Set NSApplication delegate to catch all text field editing events
         NSApp.delegate = self
         
@@ -63,6 +68,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
                 // Show login window
                 Logger.info("User not authenticated - showing login", module: "App")
                 self.showLoginWindow()
+            }
+        }
+    }
+    
+    private func registerCustomFonts() {
+        // Register EB Garamond font
+        guard let fontURL = Bundle.main.url(forResource: "EBGaramond-VariableFont_wght", withExtension: "ttf") else {
+            Logger.error("Failed to find EB Garamond font file in bundle", module: "App")
+            return
+        }
+        
+        var error: Unmanaged<CFError>?
+        let success = CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &error)
+        
+        if success {
+            Logger.info("Successfully registered EB Garamond font", module: "App")
+        } else {
+            if let error = error?.takeRetainedValue() {
+                let errorDescription = CFErrorCopyDescription(error) as String? ?? "Unknown error"
+                Logger.error("Failed to register EB Garamond font: \(errorDescription)", module: "App")
+            } else {
+                Logger.error("Failed to register EB Garamond font: Unknown error", module: "App")
             }
         }
     }
@@ -124,6 +151,20 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
             Logger.info("Main window hidden - only Notion Home window visible", module: "App")
         }
         
+        // Start all messaging provider bridges
+        if #available(macOS 15.0, *) {
+            Task { @MainActor in
+                for providerID in MessagingService.shared.availableProviders {
+                    do {
+                        try await MessagingService.shared.ensureStarted(providerID)
+                        Logger.info("Messaging provider \(providerID.rawValue) started successfully", module: "App")
+                    } catch {
+                        Logger.error("Failed to start \(providerID.rawValue) provider: \(error.localizedDescription)", module: "App")
+                    }
+                }
+            }
+        }
+
         Logger.info("Homie app started!", module: "App")
         Logger.info("Press Shift+Control+I to toggle the floating window with VoiceGPT transcription.", module: "App")
         Logger.info("Press Shift+Control+O to toggle dictation recording and transcription.", module: "App")
@@ -216,6 +257,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
 
         // Clean up all shortcuts
         ShortcutManager.shared.unregisterAllShortcuts()
+
+        // Stop all messaging provider bridges
+        // Note: Using DispatchSemaphore to ensure async work completes before termination
+        if #available(macOS 15.0, *) {
+            let semaphore = DispatchSemaphore(value: 0)
+            Task {
+                await MessagingService.shared.stopAll()
+                Logger.info("All messaging providers stopped", module: "App")
+                semaphore.signal()
+            }
+            _ = semaphore.wait(timeout: .now() + 5.0)
+        }
     }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
@@ -372,6 +425,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
     
     @objc private func openHomeWindow(_ sender: Any?) {
         notionHomeWindowController?.showWindow()
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    public func openMessageWindow() {
+        if messageWindowController == nil {
+            messageWindowController = MessageWindowController()
+        }
+        messageWindowController?.showWindow()
         NSApp.activate(ignoringOtherApps: true)
     }
     

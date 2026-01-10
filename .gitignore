@@ -11,3 +11,5 @@ supabase/.temp
 .wrangler/
 node_modules/
 homie/release/appcast.xml
+whatsapp-bridge/whatsapp-bridge
+tools/wa-grpc-cli/.build/

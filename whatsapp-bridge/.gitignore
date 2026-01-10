@@ -1,0 +1,11 @@
+# Generated protobuf files
+pkg/pb/*.go
+
+# Build output
+bin/
+
+# Database files
+*.db
+
+# macOS
+.DS_Store

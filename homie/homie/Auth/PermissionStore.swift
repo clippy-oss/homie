@@ -70,10 +70,10 @@ final class PermissionStore: ObservableObject {
         return granted
     }
 
-    /// Triggers system prompt for accessibility and starts polling if not granted.
+    /// Checks accessibility status and starts polling if not granted.
+    /// Note: Does not trigger system prompt to avoid double dialog.
     func requestAccessibility() {
-        manager.requestAccessibilityPermission()
-        accessibilityStatus = manager.checkAccessibilityStatus()
+        accessibilityStatus = manager.checkAccessibilityStatus(prompt: false)
         if !accessibilityStatus.isGranted {
             startAccessibilityPolling()
         }

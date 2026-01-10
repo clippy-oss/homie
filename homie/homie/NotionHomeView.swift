@@ -372,6 +372,31 @@ struct NotionHomeView: View {
             // Navigation Items
             VStack(alignment: .leading, spacing: 4) {
                 sidebarButton(title: "Home", icon: "house", value: "Home")
+                
+                // Messages button - opens MessageView in separate window
+                Button(action: {
+                    if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                        appDelegate.openMessageWindow()
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "message")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                            .frame(width: 20)
+                        
+                        Text("Messages")
+                            .foregroundStyle(.primary)
+                            .font(.system(size: 14))
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.clear)
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
 
                 // Only show premium features for entitled users
                 if entitlementStore.canUsePersonalize {
@@ -440,7 +465,12 @@ struct NotionHomeView: View {
                     } else if selectedSection == "Personalize" && entitlementStore.canUsePersonalize {
                         PersonalizeView()
                     } else if selectedSection == "Integrations" && entitlementStore.canUseMCPIntegrations {
-                        MCPSettingsView()
+                        if #available(macOS 15.0, *) {
+                            IntegrationsView()
+                        } else {
+                            Text("Integrations require macOS 15.0 or later")
+                                .foregroundColor(.secondary)
+                        }
                     } else if selectedSection == "Keyboard Shortcuts" {
                         KeyboardShortcutsView()
                     } else if selectedSection == "Preferences" {

@@ -216,26 +216,13 @@ struct PermissionsView: View {
     private func requestAccessibilityPermission() {
         isCheckingAccessibility = true
 
-        store.requestAccessibility()
+        // Check current status without prompting (avoids double dialog)
+        store.refreshAll()
 
-        // Check if already granted after request
         if !store.isAccessibilityGranted {
-            // Show instructions since accessibility requires manual action
-            let alert = NSAlert()
-            alert.messageText = "Accessibility Access Required"
-            alert.informativeText = "Please enable accessibility access in System Preferences > Security & Privacy > Privacy > Accessibility\n\nClick 'Check Again' after enabling the permission."
-            alert.alertStyle = .informational
-            alert.addButton(withTitle: "Check Again")
-            alert.addButton(withTitle: "Open System Preferences")
-
-            let response = alert.runModal()
-
-            if response == .alertFirstButtonReturn {
-                store.refreshAll()
-            } else if response == .alertSecondButtonReturn {
-                PermissionManager.shared.openSystemPreferences(for: .accessibility)
-                store.startAccessibilityPolling()
-            }
+            // Open System Preferences directly and start polling
+            PermissionManager.shared.openSystemPreferences(for: .accessibility)
+            store.startAccessibilityPolling()
         }
 
         isCheckingAccessibility = false
