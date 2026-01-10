@@ -32,6 +32,11 @@ const (
 	RunModeServer      RunMode = "server"
 	RunModeInteractive RunMode = "interactive"
 	RunModeHeadless    RunMode = "headless"
+
+	// grpcStartupTimeout is the maximum time to wait for the gRPC server to start
+	grpcStartupTimeout = 10 * time.Second
+	// gracefulShutdownTimeout is the maximum time to wait for graceful shutdown
+	gracefulShutdownTimeout = 10 * time.Second
 )
 
 func main() {
@@ -155,7 +160,7 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 		log.Info().Msg("gRPC server is ready and listening")
 	case err := <-errCh:
 		log.Fatal().Err(err).Msg("Server failed to start")
-	case <-time.After(10 * time.Second):
+	case <-time.After(grpcStartupTimeout):
 		log.Fatal().Msg("Timeout waiting for gRPC server to start")
 	}
 
@@ -190,7 +195,7 @@ func runServerMode(ctx context.Context, cfg *config.Config, waSvc *service.Whats
 	}
 
 	// Graceful shutdown
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
 	defer cancel()
 
 	log.Info().Msg("Disconnecting WhatsApp...")

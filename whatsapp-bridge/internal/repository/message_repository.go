@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -87,9 +88,14 @@ func (r *gormMessageRepository) UpdateReadStatus(ctx context.Context, ids []stri
 }
 
 func (r *gormMessageRepository) Search(ctx context.Context, query string, limit int) ([]*domain.Message, error) {
+	// Escape LIKE special characters to prevent SQL injection
+	escapedQuery := strings.ReplaceAll(query, "%", "\\%")
+	escapedQuery = strings.ReplaceAll(escapedQuery, "_", "\\_")
+	likePattern := "%" + escapedQuery + "%"
+
 	var models []MessageModel
 	err := r.db.WithContext(ctx).
-		Where("text LIKE ? OR caption LIKE ?", "%"+query+"%", "%"+query+"%").
+		Where("text LIKE ? ESCAPE '\\' OR caption LIKE ? ESCAPE '\\'", likePattern, likePattern).
 		Order("timestamp DESC").
 		Limit(limit).
 		Find(&models).Error

@@ -300,7 +300,7 @@ func (s *WhatsAppService) handleEvent(evt interface{}) {
 		s.mu.Lock()
 		s.connected = false
 		// Note: whatsmeow automatically calls Store.Delete() which clears device.ID
-		s.client = nil
+		// Keep client reference - it can be reused for re-pairing after logout
 		s.mu.Unlock()
 		s.eventBus.Publish(domain.ConnectionStatusEvent{
 			Connected: false,
@@ -337,13 +337,13 @@ func (s *WhatsAppService) handleMessage(evt *events.Message) {
 	ctx := context.Background()
 
 	if err := s.msgRepo.Create(ctx, msg); err != nil {
-		s.logger.Warnf("Failed to persist message: %v", err)
+		s.logger.Warnf("Failed to persist message %s in chat %s: %v", msg.ID, msg.ChatJID.String(), err)
 	}
 
 	senderName := msg.SenderJID.User
 	if !msg.IsFromMe {
 		if err := s.chatRepo.IncrementUnreadCount(ctx, msg.ChatJID); err != nil {
-			s.logger.Warnf("Failed to increment unread count: %v", err)
+			s.logger.Warnf("Failed to increment unread count for chat %s: %v", msg.ChatJID.String(), err)
 		}
 	} else {
 		senderName = "me"
@@ -358,7 +358,7 @@ func (s *WhatsAppService) handleMessage(evt *events.Message) {
 	}
 
 	if err := s.chatRepo.UpdateLastMessage(ctx, msg.ChatJID, text, senderName, msg.Timestamp); err != nil {
-		s.logger.Warnf("Failed to update chat: %v", err)
+		s.logger.Warnf("Failed to update chat %s with message %s: %v", msg.ChatJID.String(), msg.ID, err)
 	}
 
 	s.eventBus.Publish(domain.MessageReceivedEvent{

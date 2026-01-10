@@ -43,10 +43,12 @@ struct WhatsAppProcessConfiguration {
     let databasePath: String
 
     static var `default`: WhatsAppProcessConfiguration {
-        let appSupport = FileManager.default.urls(
+        guard let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory,
             in: .userDomainMask
-        ).first!
+        ).first else {
+            fatalError("Application Support directory not found - this should never happen on macOS")
+        }
 
         let homieDir = appSupport.appendingPathComponent("homie", isDirectory: true)
 
@@ -183,6 +185,8 @@ final class WhatsAppProcessManager {
     }
 
     /// Stop the subprocess gracefully
+    /// Note: This method blocks until the process terminates or timeout is reached.
+    /// The blocking wait is performed on a background queue to avoid UI freezes.
     func stop() {
         guard let process = process, process.isRunning else {
             Logger.debug("Process not running, nothing to stop", module: "WhatsApp")
@@ -195,19 +199,33 @@ final class WhatsAppProcessManager {
         // Send SIGTERM for graceful shutdown
         process.terminate()
 
-        // Wait for graceful shutdown with timeout
-        let deadline = Date().addingTimeInterval(stopTimeout)
-        while process.isRunning && Date() < deadline {
-            Thread.sleep(forTimeInterval: 0.1)
+        // Wait for graceful shutdown on background queue to avoid blocking main thread
+        let semaphore = DispatchSemaphore(value: 0)
+        let capturedProcess = process
+        let timeout = stopTimeout
+
+        DispatchQueue.global(qos: .utility).async {
+            let deadline = Date().addingTimeInterval(timeout)
+            while capturedProcess.isRunning && Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+            semaphore.signal()
         }
+
+        // Wait for graceful shutdown with timeout
+        _ = semaphore.wait(timeout: .now() + stopTimeout + 0.5)
 
         // Force kill if still running
         if process.isRunning {
             Logger.warning("Process did not terminate gracefully, force killing", module: "WhatsApp")
             process.interrupt()
 
-            // Give it a moment to die
-            Thread.sleep(forTimeInterval: 0.5)
+            // Brief wait for interrupt to take effect
+            let forceKillSemaphore = DispatchSemaphore(value: 0)
+            DispatchQueue.global(qos: .utility).asyncAfter(deadline: .now() + 0.5) {
+                forceKillSemaphore.signal()
+            }
+            _ = forceKillSemaphore.wait(timeout: .now() + 1.0)
 
             // If still running, use SIGKILL
             if process.isRunning {
