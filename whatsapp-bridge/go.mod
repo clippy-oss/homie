@@ -6,6 +6,8 @@ toolchain go1.24.2
 
 require (
 	github.com/mark3labs/mcp-go v0.43.2
+	github.com/rs/zerolog v1.34.0
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	go.mau.fi/whatsmeow v0.0.0-20260107124630-ccfa04f8e445
 	google.golang.org/grpc v1.78.0
 	google.golang.org/protobuf v1.36.11
@@ -29,8 +31,6 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/petermattis/goid v0.0.0-20251121121749-a11dd1a45f9a // indirect
-	github.com/rs/zerolog v1.34.0 // indirect
-	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e // indirect
 	github.com/spf13/cast v1.7.1 // indirect
 	github.com/vektah/gqlparser/v2 v2.5.27 // indirect
 	github.com/wk8/go-ordered-map/v2 v2.1.8 // indirect

@@ -9,12 +9,14 @@ import Cocoa
 import SwiftUI
 import Carbon
 import ApplicationServices
+import CoreText
 
 @main
 class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate {
 
     private var floatingWindowController: FloatingWindowController?
     private var notionHomeWindowController: NotionHomeWindowController?
+    private var messageWindowController: MessageWindowController?
     private var loginWindowController: NSWindowController?
     private var permissionsWindowController: NSWindowController?
     private var statusItem: NSStatusItem?
@@ -23,6 +25,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
     private let updateManager = UpdateManager.shared
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // Register custom fonts
+        registerCustomFonts()
+        
         // Set NSApplication delegate to catch all text field editing events
         NSApp.delegate = self
         
@@ -63,6 +68,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
                 // Show login window
                 Logger.info("User not authenticated - showing login", module: "App")
                 self.showLoginWindow()
+            }
+        }
+    }
+    
+    private func registerCustomFonts() {
+        // Register EB Garamond font
+        guard let fontURL = Bundle.main.url(forResource: "EBGaramond-VariableFont_wght", withExtension: "ttf") else {
+            Logger.error("Failed to find EB Garamond font file in bundle", module: "App")
+            return
+        }
+        
+        var error: Unmanaged<CFError>?
+        let success = CTFontManagerRegisterFontsForURL(fontURL as CFURL, .process, &error)
+        
+        if success {
+            Logger.info("Successfully registered EB Garamond font", module: "App")
+        } else {
+            if let error = error?.takeRetainedValue() {
+                let errorDescription = CFErrorCopyDescription(error) as String? ?? "Unknown error"
+                Logger.error("Failed to register EB Garamond font: \(errorDescription)", module: "App")
+            } else {
+                Logger.error("Failed to register EB Garamond font: Unknown error", module: "App")
             }
         }
     }
@@ -398,6 +425,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSControlTextEditingDelegate
     
     @objc private func openHomeWindow(_ sender: Any?) {
         notionHomeWindowController?.showWindow()
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    
+    public func openMessageWindow() {
+        if messageWindowController == nil {
+            messageWindowController = MessageWindowController()
+        }
+        messageWindowController?.showWindow()
         NSApp.activate(ignoringOtherApps: true)
     }
     
