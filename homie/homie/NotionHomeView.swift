@@ -372,6 +372,31 @@ struct NotionHomeView: View {
             // Navigation Items
             VStack(alignment: .leading, spacing: 4) {
                 sidebarButton(title: "Home", icon: "house", value: "Home")
+                
+                // Messages button - opens MessageView in separate window
+                Button(action: {
+                    if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                        appDelegate.openMessageWindow()
+                    }
+                }) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "message")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.primary)
+                            .frame(width: 20)
+                        
+                        Text("Messages")
+                            .foregroundStyle(.primary)
+                            .font(.system(size: 14))
+                        
+                        Spacer()
+                    }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 6)
+                    .background(Color.clear)
+                    .cornerRadius(6)
+                }
+                .buttonStyle(.plain)
 
                 // Only show premium features for entitled users
                 if entitlementStore.canUsePersonalize {
